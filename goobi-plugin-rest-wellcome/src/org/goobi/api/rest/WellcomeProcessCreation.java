@@ -18,6 +18,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.SystemUtils;
 import org.goobi.api.rest.response.WellcomeCreationResponse;
 import org.goobi.beans.Process;
+import org.goobi.beans.Processproperty;
 import org.goobi.beans.Step;
 import org.goobi.managedbeans.LoginBean;
 import org.goobi.production.flow.jobs.HistoryAnalyserJob;
@@ -32,11 +33,13 @@ import de.sub.goobi.config.ConfigurationHelper;
 import de.sub.goobi.helper.BeanHelper;
 import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.ScriptThreadWithoutHibernate;
+import de.sub.goobi.helper.enums.PropertyType;
 import de.sub.goobi.helper.enums.StepEditType;
 import de.sub.goobi.helper.enums.StepStatus;
 import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.SwapException;
 import de.sub.goobi.persistence.managers.ProcessManager;
+import de.sub.goobi.persistence.managers.PropertyManager;
 import de.sub.goobi.persistence.managers.StepManager;
 import lombok.extern.log4j.Log4j;
 import ugh.dl.DigitalDocument;
@@ -100,7 +103,6 @@ public class WellcomeProcessCreation {
             return resp;
         }
 
-        // TODO get b-no from marc file name
         String filename = path.getFileName().toString();
         // remove ending _marc.xml and _mrc.xml
         filename = filename.replaceAll("_(marc|mrc)\\.xml", "");
@@ -158,6 +160,14 @@ public class WellcomeProcessCreation {
 
         try {
             NeuenProzessAnlegen(process, template, ff, prefs);
+            
+            saveProperty(process, "b-number", currentIdentifier);
+            saveProperty(process, "CollectionName1", "Digitised");
+            saveProperty(process, "CollectionName2", collectionName);
+            saveProperty(process, "securityTag", "open");
+            saveProperty(process, "schemaName", "Millennium");
+
+            
         } catch (Exception e) {
             log.error(e);
             Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot create process with title " + getProcessTitle())).build();
@@ -480,7 +490,7 @@ public class WellcomeProcessCreation {
         return process;
     }
 
-    public String NeuenProzessAnlegen(Process process, Process template, Fileformat ff, Prefs prefs) throws Exception {
+    public void NeuenProzessAnlegen(Process process, Process template, Fileformat ff, Prefs prefs) throws Exception {
 
         for (Step step : process.getSchritteList()) {
 
@@ -526,7 +536,7 @@ public class WellcomeProcessCreation {
             process.writeMetadataFile(ff);
 
         } catch (ugh.exceptions.DocStructHasNoTypeException | MetadataTypeNotAllowedException e) {
-            return e.getMessage();
+            log.error(e);
         }
 
         // Adding process to history
@@ -543,7 +553,15 @@ public class WellcomeProcessCreation {
                 myThread.start();
             }
         }
-        return "";
+    }
+    
+   private void saveProperty(Process process, String name, String value) {
+        Processproperty pe = new Processproperty();
+        pe.setTitel(name);
+        pe.setType(PropertyType.String);
+        pe.setWert(value);
+        pe.setProzess(process);
+        PropertyManager.saveProcessProperty(pe);
     }
 
     public String getProcessTitle() {
