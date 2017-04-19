@@ -12,6 +12,7 @@ import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.SystemUtils;
@@ -86,15 +87,17 @@ public class WellcomeProcessCreation {
     @Path("/create")
     @POST
     @Produces("text/xml")
-    public WellcomeCreationResponse createNewProcess(@HeaderParam("templateid") int templateId, @HeaderParam("marcfile") String marcfile,
+    public Response createNewProcess(@HeaderParam("templateid") int templateId, @HeaderParam("marcfile") String marcfile,
             @HeaderParam("collection") String collectionName) {
 
         if (StringUtils.isBlank(marcfile)) {
-            return createErrorResponse("Parameter marc file is missing or empty.");
+            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Parameter marc file is missing or empty.")).build();
+            return resp;
         }
         java.nio.file.Path path = Paths.get(marcfile);
         if (!Files.exists(path)) {
-            return createErrorResponse("Marc file does not exist: " + marcfile);
+            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Marc file does not exist: " + marcfile)).build();
+            return resp;
         }
 
         // TODO get b-no from marc file name
@@ -103,8 +106,10 @@ public class WellcomeProcessCreation {
         filename = filename.replaceAll("_(marc|mrc)\\.xml", "");
         currentIdentifier = filename;
         if (ProcessManager.countProcesses("titel LIKE '%" + filename + "%'") > 0) {
-            // file already exists ?
-            return createErrorResponse("Process with b-number " + filename + " already exists, you should remove it.");
+            // file already exists            
+            Response resp = Response.status(Response.Status.CONFLICT).entity(createErrorResponse("Process with b-number " + filename + " already exists, you should remove it.")).build();
+            return resp;
+            
         }
         String order = null;
         String anchorId = null;
@@ -112,14 +117,16 @@ public class WellcomeProcessCreation {
             // multivolume
             anchorId = filename.split("_")[0];
             order = filename.split("_")[1];
-            if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "%'") > 0) {
-                return createErrorResponse("b-number " + anchorId + " already exists, you should move it to suspicious folder.");
+            if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "%'") > 0) {                
+                Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("b-number " + anchorId + " already exists, you should move it to suspicious folder.")).build();
+                return resp;
             }
         }
 
         Process template = ProcessManager.getProcessById(templateId);
         if (template == null) {
-            return createErrorResponse("Cannot find process template with id " + templateId);
+            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Cannot find process template with id " + templateId)).build();
+            return resp;
         }
 
         Prefs prefs = template.getRegelsatz().getPreferences();
@@ -130,7 +137,8 @@ public class WellcomeProcessCreation {
             doc = builder.build(marcfile);
         } catch (JDOMException | IOException e) {
             log.error(e);
-            return createErrorResponse("Cannot read marc record " + marcfile);
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot read marc record " + marcfile)).build();
+            return resp;
         }
         Fileformat ff = null;
         if (order == null) {
@@ -139,7 +147,9 @@ public class WellcomeProcessCreation {
             ff = convertMMO(doc, prefs, collectionName, order, anchorId, filename);
         }
         if (ff == null) {
-            return createErrorResponse("Cannot convert marc record " + marcfile);
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot convert marc record " + marcfile)).build();
+            return resp;
+
         }
 
         Process process = cloneTemplate(template);
@@ -150,21 +160,23 @@ public class WellcomeProcessCreation {
             NeuenProzessAnlegen(process, template, ff, prefs);
         } catch (Exception e) {
             log.error(e);
-            return createErrorResponse("Cannot create process with title " + getProcessTitle());
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot create process with title " + getProcessTitle())).build();
+            return resp;
         }
         try {
             String destination = process.getImportDirectory();
             WellcomeUtils.writeXmlToFile(destination, getProcessTitle() + "_mrc.xml", doc);
         } catch (SwapException | DAOException | IOException | InterruptedException e) {
             log.error(e);
-            return createErrorResponse("Cannot save import file.");
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot save import file.")).build();
+            return resp;
         }
 
         WellcomeCreationResponse resp = new WellcomeCreationResponse();
         resp.setProcessId(process.getId());
         resp.setProcessName(getProcessTitle());
         resp.setResult("success");
-        return resp;
+        return Response.status(Response.Status.OK).entity(resp).build();
     }
 
     private Fileformat convertMMO(Document doc, Prefs prefs, String collectionName, String order, String anchorIdentifier, String volumeIdentifier) {
