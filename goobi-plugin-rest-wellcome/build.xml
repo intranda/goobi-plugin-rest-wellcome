@@ -8,12 +8,15 @@
     <property name="dir.deploy" value="deploy" />
     <property name="pluginFolderWin" value="C:/Goobi/plugins/GUI/" />
     <property name="pluginFolderUnix" value="/opt/digiverso/goobi/plugins/GUI/" />
-
+    <property name="jenkins.classpath" value="/nonexistant"/>
     <path id="classpath">
         <fileset dir="/opt/digiverso/goobilibs/lib" />
         <fileset dir="/opt/digiverso/libs" />
     </path>
-
+    <path id="jenkins-classpath">
+        <fileset dir="${jenkins.classpath}"/>
+        <fileset dir="/opt/digiverso/libs" />
+    </path>
     <tstamp>
         <format property="tstamped-file-name" pattern="yyyy-MM-dd" locale="en,UK" />
     </tstamp>
@@ -78,7 +81,7 @@
         <target name="compile-jenkins" if="${jenkins}">
                 <echo>Using jenkins compiler</echo>
                 <javac destdir="${dir.build}" includeantruntime="false"  target="7" encoding="UTF8" source="7" debug="true" debuglevel="lines,vars,source">
-                        <classpath refid="classpath" />
+                        <classpath refid="jenkins-classpath" />
                         <compilerarg value="-Xlint" />
                         <src path="src" />
                         <!--                    <src path="../Goobi/WEB-INF/src" /> -->
