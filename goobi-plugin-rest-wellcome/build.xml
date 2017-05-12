@@ -1,8 +1,8 @@
 <project name="Goobi RESTful Plugin" basedir="." default="deploy">
 
-    <!-- ================================= 
-    	        properties             
-    	     ================================= -->
+    <!-- =================================
+              properties
+           ================================= -->
     <property name="filename" value="plugin_intranda_rest_wellcome" />
     <property name="dir.build" value="bin" />
     <property name="dir.deploy" value="deploy" />
@@ -21,9 +21,9 @@
         <format property="tstamped-file-name" pattern="yyyy-MM-dd" locale="en,UK" />
     </tstamp>
 
-    <!-- ================================= 
+    <!-- =================================
              General targets: clean, createDirs, git.revision
-    	     ================================= -->
+           ================================= -->
 
     <!-- Clean up generated and compiled files. -->
     <target name="clean" description="Clean up generated and compiled files.">
@@ -56,9 +56,9 @@
         <echo> Git revision is: ${git.revision}</echo>
     </target>
 
-    <!-- ================================= 
+    <!-- =================================
              copy all files to final places
-    	     ================================= -->
+           ================================= -->
 
     <!--  copyToPluginFolder, depending on OS -->
     <target name="copyToPluginFolder" depends="linux,win32">
@@ -66,7 +66,7 @@
     </target>
     <target name="linux" if="isUnix">
         <echo>Using Linux path: ${pluginFolderUnix}</echo>
-	<copy tofile="${pluginFolderUnix}/${filename}.jar" file="${dir.deploy}/${filename}-${git.revision}.jar" overwrite="true" />
+  <copy tofile="${pluginFolderUnix}/${filename}.jar" file="${dir.deploy}/${filename}-${git.revision}.jar" overwrite="true" />
 
     </target>
     <target name="win32" if="isWindows">
@@ -74,9 +74,9 @@
         <copy tofile="${pluginFolderWin}$${filename}-${git.revision}.jar" file="${dir.deploy}/${filename}-${git.revision}.jar" overwrite="true" />
     </target>
 
-    <!-- ================================= 
+    <!-- =================================
              Compile the sources
-    	     ================================= -->
+           ================================= -->
 
         <target name="compile-jenkins" if="${jenkins}">
                 <echo>Using jenkins compiler</echo>
@@ -111,9 +111,9 @@
 
 
 
-    <!-- ================================= 
+    <!-- =================================
              Compile the jar
-    	     ================================= -->
+           ================================= -->
         <target name="jar-jenkins" if="jenkins">
                 <jar destfile="${dir.deploy}/${filename}-${git.revision}.jar">
                         <manifest>
@@ -163,31 +163,31 @@
     </target>
 
 
-    <!-- ================================= 
-    	              RUNNABLE JAR
-    		 ================================= -->
+    <!-- =================================
+                    RUNNABLE JAR
+         ================================= -->
 
     <target name="jar.runnable" depends="git.revision">
-	    <echo>Compile sources ...</echo>
+      <echo>Compile sources ...</echo>
                 <antcall target="compile-jenkins" />
                 <antcall target="compile-eclipse" />
 
                 <echo>Generating jar file: ${dir.deploy}/${filename}-${git.revision}.jar</echo>
                 <antcall target="jar-jenkins" />
                 <antcall target="jar-eclipse" />
-	    
+
     </target>
 
-    <!-- ================================= 
+    <!-- =================================
                       DISTRIBUTION
-    	     ================================= -->
+           ================================= -->
 
     <!-- Run all targets in appropiate order for clean compile-->
     <target name="dist" depends="clean, createDirs, git.revision, jar.runnable" description="Creating everything for Jenkins." />
 
-    <!-- ================================= 
+    <!-- =================================
                       DEPLOY
-    	     ================================= -->
+           ================================= -->
 
     <!-- Default target that compiles the jar from eclipse and copies it to the right folder depending on operating system-->
     <target name="deploy" depends="jar.runnable" description="Default target for Eclipse compiling with correct deployment">
