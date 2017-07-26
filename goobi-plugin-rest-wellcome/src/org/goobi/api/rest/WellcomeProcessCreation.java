@@ -108,7 +108,7 @@ public class WellcomeProcessCreation {
         filename = filename.replaceAll("_(marc|mrc)\\.xml", "");
         currentIdentifier = filename;
         
-        if (ProcessManager.countProcesses("titel LIKE '%" + filename + "_%'") > 0) {
+        if (ProcessManager.countProcesses("titel LIKE '%" + filename + "\\_%'") > 0) {
             // file already exists            
             Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("Process with b-number " + filename + " already exists, as MMO.")).build();
             return resp;
