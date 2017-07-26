@@ -107,6 +107,15 @@ public class WellcomeProcessCreation {
         // remove ending _marc.xml and _mrc.xml
         filename = filename.replaceAll("_(marc|mrc)\\.xml", "");
         currentIdentifier = filename;
+        
+        if (ProcessManager.countProcesses("titel LIKE '%" + filename + "_%'") > 0) {
+            // file already exists            
+            Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("Process with b-number " + filename + " already exists, as MMO.")).build();
+            return resp;
+            
+        }
+        
+        
         if (ProcessManager.countProcesses("titel LIKE '%" + filename + "%'") > 0) {
             // file already exists            
             Response resp = Response.status(Response.Status.CONFLICT).entity(createErrorResponse("Process with b-number " + filename + " already exists, you should remove it.")).build();
