@@ -119,7 +119,7 @@ public class WellcomeProcessCreation {
             // multivolume
             anchorId = filename.split("_")[0];
             order = filename.split("_")[1];
-            if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "%'") > 0) {                
+            if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "'") > 0) {                
                 Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("b-number " + anchorId + " already exists, you should move it to suspicious folder.")).build();
                 return resp;
             }
