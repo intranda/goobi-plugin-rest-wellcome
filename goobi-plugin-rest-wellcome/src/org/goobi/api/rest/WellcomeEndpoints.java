@@ -95,7 +95,7 @@ public class WellcomeEndpoints {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     public Response archiveCallback(@PathParam("stepid") int stepId, ArchiveCallbackRequest acr) {
-        if ("completed-callback-succeeded".equals(acr.getStatus().get("id"))) {
+        if ("completed".equals(acr.getStatus().get("id"))) {
             Step so = StepManager.getStepById(stepId);
             if (so == null) {
                 return Response.status(404).entity("step not found").build();
