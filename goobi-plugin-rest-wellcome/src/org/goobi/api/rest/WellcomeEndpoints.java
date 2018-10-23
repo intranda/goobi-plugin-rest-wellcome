@@ -8,14 +8,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.ws.rs.Consumes;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.SystemUtils;
+import org.goobi.api.rest.model.ArchiveCallbackRequest;
 import org.goobi.api.rest.response.WellcomeCreationResponse;
 import org.goobi.beans.Process;
 import org.goobi.beans.Processproperty;
@@ -57,7 +61,7 @@ import ugh.fileformats.mets.MetsMods;
 
 @Path("/wellcome")
 @Log4j
-public class WellcomeProcessCreation {
+public class WellcomeEndpoints {
 
     private static final String XSLT = ConfigurationHelper.getInstance().getXsltFolder() + "MARC21slim2MODS3.xsl";
     private static final String MODS_MAPPING_FILE = ConfigurationHelper.getInstance().getXsltFolder() + "mods_map.xml";
@@ -68,7 +72,7 @@ public class WellcomeProcessCreation {
     private String currentIdentifier;
     private String currentWellcomeIdentifier;
 
-    public WellcomeProcessCreation() {
+    public WellcomeEndpoints() {
         map.put("?Monographic", "Monograph");
         map.put("?continuing", "Periodical"); // not mapped
         map.put("?Notated music", "Monograph");
@@ -87,6 +91,28 @@ public class WellcomeProcessCreation {
         map.put("?BoundManuscript", "BoundManuscript");
     }
 
+    @Path("/steps/{stepid}/archivecallback")
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response archiveCallback(@PathParam("stepid") int stepId, ArchiveCallbackRequest acr) {
+        if ("completed-callback-succeeded".equals(acr.getStatus().get("id"))) {
+            Step so = StepManager.getStepById(stepId);
+            if (so == null) {
+                return Response.status(404).entity("step not found").build();
+            } else {
+                so.setBearbeitungsstatusEnum(StepStatus.DONE);
+                try {
+                    StepManager.saveStep(so);
+                } catch (DAOException e) {
+                    log.error(e);
+                    return Response.status(500).build();
+                }
+                return Response.noContent().build();
+            }
+        }
+        return Response.noContent().build();
+    }
+
     @Path("/create")
     @POST
     @Produces("text/xml")
@@ -94,7 +120,8 @@ public class WellcomeProcessCreation {
             @HeaderParam("collection") String collectionName) {
 
         if (StringUtils.isBlank(marcfile)) {
-            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Parameter marc file is missing or empty.")).build();
+            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Parameter marc file is missing or empty."))
+                    .build();
             return resp;
         }
         java.nio.file.Path path = Paths.get(marcfile);
@@ -107,20 +134,21 @@ public class WellcomeProcessCreation {
         // remove ending _marc.xml and _mrc.xml
         filename = filename.replaceAll("_(marc|mrc)\\.xml", "");
         currentIdentifier = filename;
-        
+
         if (ProcessManager.countProcesses("titel LIKE '%" + filename + "\\_%'") > 0) {
             // file already exists            
-            Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("Process with b-number " + filename + " already exists, as MMO.")).build();
+            Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("Process with b-number " + filename
+                    + " already exists, as MMO.")).build();
             return resp;
-            
+
         }
-        
-        
+
         if (ProcessManager.countProcesses("titel LIKE '%" + filename + "%'") > 0) {
             // file already exists            
-            Response resp = Response.status(Response.Status.CONFLICT).entity(createErrorResponse("Process with b-number " + filename + " already exists, you should remove it.")).build();
+            Response resp = Response.status(Response.Status.CONFLICT).entity(createErrorResponse("Process with b-number " + filename
+                    + " already exists, you should remove it.")).build();
             return resp;
-            
+
         }
         String order = null;
         String anchorId = null;
@@ -128,15 +156,17 @@ public class WellcomeProcessCreation {
             // multivolume
             anchorId = filename.split("_")[0];
             order = filename.split("_")[1];
-            if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "'") > 0) {                
-                Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("b-number " + anchorId + " already exists, you should move it to suspicious folder.")).build();
+            if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "'") > 0) {
+                Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("b-number " + anchorId
+                        + " already exists, you should move it to suspicious folder.")).build();
                 return resp;
             }
         }
 
         Process template = ProcessManager.getProcessById(templateId);
         if (template == null) {
-            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Cannot find process template with id " + templateId)).build();
+            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Cannot find process template with id "
+                    + templateId)).build();
             return resp;
         }
 
@@ -148,7 +178,8 @@ public class WellcomeProcessCreation {
             doc = builder.build(marcfile);
         } catch (JDOMException | IOException e) {
             log.error(e);
-            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot read marc record " + marcfile)).build();
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot read marc record " + marcfile))
+                    .build();
             return resp;
         }
         Fileformat ff = null;
@@ -158,7 +189,8 @@ public class WellcomeProcessCreation {
             ff = convertMMO(doc, prefs, collectionName, order, anchorId, filename);
         }
         if (ff == null) {
-            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot convert marc record " + marcfile)).build();
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot convert marc record "
+                    + marcfile)).build();
             return resp;
 
         }
@@ -169,17 +201,17 @@ public class WellcomeProcessCreation {
 
         try {
             NeuenProzessAnlegen(process, template, ff, prefs);
-            
+
             saveProperty(process, "b-number", currentIdentifier);
             saveProperty(process, "CollectionName1", "Digitised");
             saveProperty(process, "CollectionName2", collectionName);
             saveProperty(process, "securityTag", "open");
             saveProperty(process, "schemaName", "Millennium");
 
-            
         } catch (Exception e) {
             log.error(e);
-            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot create process with title " + getProcessTitle())).build();
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot create process with title "
+                    + getProcessTitle())).build();
             return resp;
         }
         try {
@@ -563,8 +595,8 @@ public class WellcomeProcessCreation {
             }
         }
     }
-    
-   private void saveProperty(Process process, String name, String value) {
+
+    private void saveProperty(Process process, String name, String value) {
         Processproperty pe = new Processproperty();
         pe.setTitel(name);
         pe.setType(PropertyType.String);
