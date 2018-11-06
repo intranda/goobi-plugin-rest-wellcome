@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.naming.ConfigurationException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -36,6 +37,7 @@ import org.jdom2.transform.XSLTransformer;
 import de.sub.goobi.config.ConfigurationHelper;
 import de.sub.goobi.helper.BeanHelper;
 import de.sub.goobi.helper.Helper;
+import de.sub.goobi.helper.JwtHelper;
 import de.sub.goobi.helper.ScriptThreadWithoutHibernate;
 import de.sub.goobi.helper.enums.PropertyType;
 import de.sub.goobi.helper.enums.StepEditType;
@@ -91,10 +93,19 @@ public class WellcomeEndpoints {
         map.put("?BoundManuscript", "BoundManuscript");
     }
 
-    @Path("/steps/{stepid}/archivecallback")
+    @Path("/steps/{stepid}/archivecallback/{token}")
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response archiveCallback(@PathParam("stepid") int stepId, ArchiveCallbackRequest acr) {
+    public Response archiveCallback(@PathParam("stepid") int stepId, String token, ArchiveCallbackRequest acr) {
+        try {
+            if (!JwtHelper.verifyChangeStepToken(token, stepId)) {
+                return Response.status(401).entity("token not valid or claims not correct").build();
+            }
+        } catch (ConfigurationException e1) {
+            // TODO Auto-generated catch block
+            log.error(e1);
+            return Response.status(500).entity("Internal server error: Goobi misconfiguration. See logs for details.").build();
+        }
         if ("completed".equals(acr.getStatus().get("id"))) {
             Step so = StepManager.getStepById(stepId);
             if (so == null) {
