@@ -106,20 +106,28 @@ public class WellcomeEndpoints {
             log.error(e1);
             return Response.status(500).entity("Internal server error: Goobi misconfiguration. See logs for details.").build();
         }
+        Step so = StepManager.getStepById(stepId);
+        if (so == null) {
+            return Response.status(404).entity("step not found").build();
+        }
         if ("completed".equals(acr.getStatus().get("id"))) {
-            Step so = StepManager.getStepById(stepId);
-            if (so == null) {
-                return Response.status(404).entity("step not found").build();
-            } else {
-                so.setBearbeitungsstatusEnum(StepStatus.DONE);
-                try {
-                    StepManager.saveStep(so);
-                } catch (DAOException e) {
-                    log.error(e);
-                    return Response.status(500).build();
-                }
-                return Response.noContent().build();
+            so.setBearbeitungsstatusEnum(StepStatus.DONE);
+            try {
+                StepManager.saveStep(so);
+            } catch (DAOException e) {
+                log.error(e);
+                return Response.status(500).build();
             }
+            return Response.noContent().build();
+        } else if ("failed".equals(acr.getStatus().get("id"))) {
+            so.setBearbeitungsstatusEnum(StepStatus.ERROR);
+            try {
+                StepManager.saveStep(so);
+            } catch (DAOException e) {
+                log.error(e);
+                return Response.status(500).build();
+            }
+            return Response.noContent().build();
         }
         return Response.noContent().build();
     }
