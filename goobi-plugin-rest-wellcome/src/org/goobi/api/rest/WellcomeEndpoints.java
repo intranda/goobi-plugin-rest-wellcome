@@ -96,7 +96,7 @@ public class WellcomeEndpoints {
     @Path("/steps/{stepid}/archivecallback/{token}")
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response archiveCallback(@PathParam("stepid") int stepId, String token, ArchiveCallbackRequest acr) {
+    public Response archiveCallback(@PathParam("stepid") int stepId, @PathParam("token") String token, ArchiveCallbackRequest acr) {
         try {
             if (!JwtHelper.verifyChangeStepToken(token, stepId)) {
                 return Response.status(401).entity("token not valid or claims not correct").build();
@@ -139,7 +139,8 @@ public class WellcomeEndpoints {
             @HeaderParam("collection") String collectionName) {
 
         if (StringUtils.isBlank(marcfile)) {
-            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Parameter marc file is missing or empty."))
+            Response resp = Response.status(Response.Status.BAD_REQUEST)
+                    .entity(createErrorResponse("Parameter marc file is missing or empty."))
                     .build();
             return resp;
         }
@@ -156,16 +157,20 @@ public class WellcomeEndpoints {
 
         if (ProcessManager.countProcesses("titel LIKE '%" + filename + "\\_%'") > 0) {
             // file already exists            
-            Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("Process with b-number " + filename
-                    + " already exists, as MMO.")).build();
+            Response resp = Response.status(Response.Status.EXPECTATION_FAILED)
+                    .entity(createErrorResponse("Process with b-number " + filename
+                            + " already exists, as MMO."))
+                    .build();
             return resp;
 
         }
 
         if (ProcessManager.countProcesses("titel LIKE '%" + filename + "%'") > 0) {
             // file already exists            
-            Response resp = Response.status(Response.Status.CONFLICT).entity(createErrorResponse("Process with b-number " + filename
-                    + " already exists, you should remove it.")).build();
+            Response resp = Response.status(Response.Status.CONFLICT)
+                    .entity(createErrorResponse("Process with b-number " + filename
+                            + " already exists, you should remove it."))
+                    .build();
             return resp;
 
         }
@@ -176,16 +181,20 @@ public class WellcomeEndpoints {
             anchorId = filename.split("_")[0];
             order = filename.split("_")[1];
             if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "'") > 0) {
-                Response resp = Response.status(Response.Status.EXPECTATION_FAILED).entity(createErrorResponse("b-number " + anchorId
-                        + " already exists, you should move it to suspicious folder.")).build();
+                Response resp = Response.status(Response.Status.EXPECTATION_FAILED)
+                        .entity(createErrorResponse("b-number " + anchorId
+                                + " already exists, you should move it to suspicious folder."))
+                        .build();
                 return resp;
             }
         }
 
         Process template = ProcessManager.getProcessById(templateId);
         if (template == null) {
-            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Cannot find process template with id "
-                    + templateId)).build();
+            Response resp = Response.status(Response.Status.BAD_REQUEST)
+                    .entity(createErrorResponse("Cannot find process template with id "
+                            + templateId))
+                    .build();
             return resp;
         }
 
@@ -197,7 +206,8 @@ public class WellcomeEndpoints {
             doc = builder.build(marcfile);
         } catch (JDOMException | IOException e) {
             log.error(e);
-            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot read marc record " + marcfile))
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(createErrorResponse("Cannot read marc record " + marcfile))
                     .build();
             return resp;
         }
@@ -208,8 +218,10 @@ public class WellcomeEndpoints {
             ff = convertMMO(doc, prefs, collectionName, order, anchorId, filename);
         }
         if (ff == null) {
-            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot convert marc record "
-                    + marcfile)).build();
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(createErrorResponse("Cannot convert marc record "
+                            + marcfile))
+                    .build();
             return resp;
 
         }
@@ -229,8 +241,10 @@ public class WellcomeEndpoints {
 
         } catch (Exception e) {
             log.error(e);
-            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot create process with title "
-                    + getProcessTitle())).build();
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(createErrorResponse("Cannot create process with title "
+                            + getProcessTitle()))
+                    .build();
             return resp;
         }
         try {
