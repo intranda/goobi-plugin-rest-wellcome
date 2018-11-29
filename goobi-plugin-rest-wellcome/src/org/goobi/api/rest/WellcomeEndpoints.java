@@ -110,7 +110,7 @@ public class WellcomeEndpoints {
         if (so == null) {
             return Response.status(404).entity("step not found").build();
         }
-        if ("success".equals(acr.getStatus().get("id"))) {
+        if ("succeeded".equals(acr.getStatus().get("id"))) {
             so.setBearbeitungsstatusEnum(StepStatus.DONE);
             try {
                 StepManager.saveStep(so);
