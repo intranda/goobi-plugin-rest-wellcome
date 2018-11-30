@@ -66,8 +66,10 @@ import ugh.dl.Prefs;
 import ugh.exceptions.DocStructHasNoTypeException;
 import ugh.exceptions.MetadataTypeNotAllowedException;
 import ugh.exceptions.PreferencesException;
+import ugh.exceptions.ReadException;
 import ugh.exceptions.TypeNotAllowedAsChildException;
 import ugh.exceptions.TypeNotAllowedForParentException;
+import ugh.exceptions.WriteException;
 import ugh.fileformats.mets.MetsMods;
 
 @Path("/wellcome")
@@ -135,7 +137,16 @@ public class WellcomeEndpoints {
 			if (dotIndex > 0) {
 				fileName = fileName.substring(0, dotIndex);
 			}
-			if (fileName.equals(so.getProzess().getTitel())) {
+			Prefs prefs = so.getProzess().getRegelsatz().getPreferences();
+			String catalogID = "";
+			try {
+				catalogID = so.getProzess().readMetadataFile().getDigitalDocument().getLogicalDocStruct()
+						.getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital")).get(0).getValue();
+			} catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException
+					| SwapException | DAOException e) {
+				log.error("could not find catalogID, not deleting bag", e);
+			}
+			if (fileName.equals(catalogID)) {
 				deleteFileFromS3(acr.getSourceLocation().getBucket(), acr.getSourceLocation().getPath().toString());
 			}
 			return Response.noContent().build();
