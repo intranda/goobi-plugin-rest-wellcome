@@ -15,4 +15,5 @@ public class ArchiveCallbackRequest {
     private Map<String, String> ingestType;
     private Map<String, String> status;
     private List<ArchiveEvent> events;
+    private SourceLocation sourceLocation; 
 }
