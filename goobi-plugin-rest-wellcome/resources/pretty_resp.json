@@ -1,0 +1,67 @@
+{
+    "@context": "https://api.wellcomecollection.org/storage/v1/context.json",
+    "bag": {
+        "id": "digitised/b30302122",
+        "type": "Bag"
+    },
+    "callback": {
+        "status": {
+            "id": "failed",
+            "type": "Status"
+        },
+        "type": "Callback",
+        "url": "https://workflow.wellcomecollection.org/goobi/api/wellcome/steps/41913/archivecallback/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJHb29iaSIsInN0ZXBJZCI6NDE5MTMsImNoYW5nZVN0ZXBBbGxvd2VkIjp0cnVlLCJleHAiOjE1NDM5ODA5Njh9.JZB5knbzI7EGo_Xu39BUmNGNRHXPrvqjTAwI-o48PZ0"
+    },
+    "createdDate": "2018-12-03T14:36:08.497Z",
+    "events": [
+        {
+            "createdDate": "2018-12-03T14:36:08.864Z",
+            "description": "Started working on ingestRequest: 0f12d2a2-8c9c-460d-9561-99efd9b5f731",
+            "type": "ProgressEvent"
+        },
+        {
+            "createdDate": "2018-12-03T14:36:11.593Z",
+            "description": "zipFile downloaded successfully",
+            "type": "ProgressEvent"
+        },
+        {
+            "createdDate": "2018-12-03T14:36:24.014Z",
+            "description": "Bag uploaded and verified successfully",
+            "type": "ProgressEvent"
+        },
+        {
+            "createdDate": "2018-12-03T14:36:24.917Z",
+            "description": "Bag registered successfully",
+            "type": "ProgressEvent"
+        },
+        {
+            "createdDate": "2018-12-03T14:36:26.298Z",
+            "description": "Callback failed for: 0f12d2a2-8c9c-460d-9561-99efd9b5f731, got 400 Bad Request!",
+            "type": "ProgressEvent"
+        }
+    ],
+    "id": "0f12d2a2-8c9c-460d-9561-99efd9b5f731",
+    "ingestType": {
+        "id": "create",
+        "type": "IngestType"
+    },
+    "lastModifiedDate": "2018-12-03T14:36:08.497Z",
+    "sourceLocation": {
+        "bucket": "wellcomecollection-workflow-export-bagit",
+        "path": "b30302122.zip",
+        "provider": {
+            "id": "aws-s3-standard",
+            "type": "Provider"
+        },
+        "type": "Location"
+    },
+    "space": {
+        "id": "digitised",
+        "type": "Space"
+    },
+    "status": {
+        "id": "succeeded",
+        "type": "Status"
+    },
+    "type": "Ingest"
+}
