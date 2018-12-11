@@ -22,10 +22,12 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.SystemUtils;
 import org.goobi.api.rest.model.ArchiveCallbackRequest;
 import org.goobi.api.rest.response.WellcomeCreationResponse;
+import org.goobi.beans.LogEntry;
 import org.goobi.beans.Process;
 import org.goobi.beans.Processproperty;
 import org.goobi.beans.Step;
 import org.goobi.managedbeans.LoginBean;
+import org.goobi.production.enums.LogType;
 import org.goobi.production.flow.jobs.HistoryAnalyserJob;
 import org.jdom2.Document;
 import org.jdom2.Element;
@@ -126,6 +128,14 @@ public class WellcomeEndpoints {
             return Response.status(404).entity("step not found").build();
         }
         if ("succeeded".equals(acr.getStatus().get("id"))) {
+            LogEntry logEntry = new LogEntry();
+            logEntry.setContent("Received callback request from archive service. Status is 'succeeded'.");
+            logEntry.setCreationDate(new Date());
+            logEntry.setProcessId(so.getProcessId());
+            logEntry.setType(LogType.getByTitle("info"));
+            logEntry.setUserName("webapi");
+            ProcessManager.saveLogEntry(logEntry);
+
             log.debug("archive-callback: archiving succeeded. Closing step.");
             so.setBearbeitungsstatusEnum(StepStatus.DONE);
             try {
@@ -154,6 +164,13 @@ public class WellcomeEndpoints {
             }
             return Response.noContent().build();
         } else if ("failed".equals(acr.getStatus().get("id"))) {
+            LogEntry logEntry = new LogEntry();
+            logEntry.setContent("Received callback request from archive service. Status is 'failed'.");
+            logEntry.setCreationDate(new Date());
+            logEntry.setProcessId(so.getProcessId());
+            logEntry.setType(LogType.getByTitle("error"));
+            logEntry.setUserName("webapi");
+            ProcessManager.saveLogEntry(logEntry);
             log.debug("archive service notified status 'failed'. Setting step to error.");
             so.setBearbeitungsstatusEnum(StepStatus.ERROR);
             try {
@@ -163,6 +180,15 @@ public class WellcomeEndpoints {
                 return Response.status(500).build();
             }
             return Response.noContent().build();
+        } else {
+            LogEntry logEntry = new LogEntry();
+            logEntry.setContent("Received callback request from archive service. Status is either not set or unknown to Goobi. See log for details.");
+            logEntry.setCreationDate(new Date());
+            logEntry.setProcessId(so.getProcessId());
+            logEntry.setType(LogType.getByTitle("warn"));
+            logEntry.setUserName("webapi");
+            ProcessManager.saveLogEntry(logEntry);
+            log.debug("archive service notified no or unknown status. Deserialized body was:\n" + acr);
         }
         return Response.noContent().build();
     }
