@@ -111,6 +111,7 @@ public class WellcomeEndpoints {
             ArchiveCallbackRequest acr) {
         try {
             if (!JwtHelper.verifyChangeStepToken(token, stepId)) {
+                log.error("archive-callback: token not valid or claims not correct");
                 return Response.status(401).entity("token not valid or claims not correct").build();
             }
         } catch (ConfigurationException e1) {
@@ -121,9 +122,11 @@ public class WellcomeEndpoints {
         }
         Step so = StepManager.getStepById(stepId);
         if (so == null) {
+            log.error("archive-callback: step " + stepId + " not found.");
             return Response.status(404).entity("step not found").build();
         }
         if ("succeeded".equals(acr.getStatus().get("id"))) {
+            log.debug("archive-callback: archiving succeeded. Closing step.");
             so.setBearbeitungsstatusEnum(StepStatus.DONE);
             try {
                 StepManager.saveStep(so);
@@ -146,10 +149,12 @@ public class WellcomeEndpoints {
                 log.error("could not find catalogID, not deleting bag", e);
             }
             if (fileName.equals(catalogID)) {
+                log.debug("archive-service: attempting to delete bag from s3.");
                 deleteFileFromS3(acr.getSourceLocation().getBucket(), acr.getSourceLocation().getPath().toString());
             }
             return Response.noContent().build();
         } else if ("failed".equals(acr.getStatus().get("id"))) {
+            log.debug("archive service notified status 'failed'. Setting step to error.");
             so.setBearbeitungsstatusEnum(StepStatus.ERROR);
             try {
                 StepManager.saveStep(so);
