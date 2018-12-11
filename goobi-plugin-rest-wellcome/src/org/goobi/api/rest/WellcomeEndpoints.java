@@ -127,6 +127,7 @@ public class WellcomeEndpoints {
             log.error("archive-callback: step " + stepId + " not found.");
             return Response.status(404).entity("step not found").build();
         }
+        saveProperty(so.getProzess(), "archive ingest id", acr.getId());
         if ("succeeded".equals(acr.getStatus().get("id"))) {
             LogEntry logEntry = new LogEntry();
             logEntry.setContent("Received callback request from archive service. Status is 'succeeded'.");
