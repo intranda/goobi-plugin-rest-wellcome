@@ -32,7 +32,7 @@ pipeline {
   
   post {
     success {
-      archiveArtifacts artifacts: '*/module-*/target/*.jar, */plugin_*.xml, */target/*.jar', fingerprint: true
+      archiveArtifacts artifacts: '**/target/*.jar, */plugin_*.xml, plugin_*.xml', fingerprint: true, onlyIfSuccessful: true
     }
     changed {
       emailext(
