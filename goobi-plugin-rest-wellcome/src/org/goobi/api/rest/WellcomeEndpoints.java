@@ -47,8 +47,8 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
 import de.sub.goobi.config.ConfigurationHelper;
 import de.sub.goobi.helper.BeanHelper;
+import de.sub.goobi.helper.CloseStepHelper;
 import de.sub.goobi.helper.Helper;
-import de.sub.goobi.helper.HelperSchritte;
 import de.sub.goobi.helper.JwtHelper;
 import de.sub.goobi.helper.ScriptThreadWithoutHibernate;
 import de.sub.goobi.helper.enums.PropertyType;
@@ -139,9 +139,8 @@ public class WellcomeEndpoints {
             ProcessManager.saveLogEntry(logEntry);
 
             log.debug("archive-callback: archiving succeeded. Closing step.");
-//            so.setBearbeitungsstatusEnum(StepStatus.DONE);
-            HelperSchritte hs=new HelperSchritte();
-            hs.CloseStepObjectAutomatic(so);
+            //            so.setBearbeitungsstatusEnum(StepStatus.DONE);
+            CloseStepHelper.closeStep(so, null);
             try {
                 StepManager.saveStep(so);
             } catch (DAOException e) {
