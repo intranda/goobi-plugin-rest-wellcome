@@ -3,6 +3,9 @@ package org.goobi.api.rest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +21,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.SystemUtils;
 import org.goobi.api.rest.model.ArchiveCallbackRequest;
@@ -56,6 +60,8 @@ import de.sub.goobi.helper.enums.StepEditType;
 import de.sub.goobi.helper.enums.StepStatus;
 import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.SwapException;
+import de.sub.goobi.persistence.managers.MetadataManager;
+import de.sub.goobi.persistence.managers.MySQLHelper;
 import de.sub.goobi.persistence.managers.ProcessManager;
 import de.sub.goobi.persistence.managers.PropertyManager;
 import de.sub.goobi.persistence.managers.StepManager;
@@ -110,8 +116,7 @@ public class WellcomeEndpoints {
     @Path("/steps/{stepid}/archivecallback/{token}")
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response archiveCallback(@PathParam("stepid") int stepId, @PathParam("token") String token,
-            ArchiveCallbackRequest acr) {
+    public Response archiveCallback(@PathParam("stepid") int stepId, @PathParam("token") String token, ArchiveCallbackRequest acr) {
         try {
             if (!JwtHelper.verifyChangeStepToken(token, stepId)) {
                 log.error("archive-callback: token not valid or claims not correct");
@@ -120,8 +125,7 @@ public class WellcomeEndpoints {
         } catch (ConfigurationException e1) {
             // TODO Auto-generated catch block
             log.error(e1);
-            return Response.status(500).entity("Internal server error: Goobi misconfiguration. See logs for details.")
-                    .build();
+            return Response.status(500).entity("Internal server error: Goobi misconfiguration. See logs for details.").build();
         }
         Step so = StepManager.getStepById(stepId);
         if (so == null) {
@@ -155,12 +159,19 @@ public class WellcomeEndpoints {
             Prefs prefs = so.getProzess().getRegelsatz().getPreferences();
             String catalogID = "";
             try {
-                catalogID = so.getProzess().readMetadataFile().getDigitalDocument().getLogicalDocStruct()
-                        .getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital")).get(0).getValue();
-            } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException
-                    | SwapException | DAOException e) {
+                catalogID = so.getProzess()
+                        .readMetadataFile()
+                        .getDigitalDocument()
+                        .getLogicalDocStruct()
+                        .getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital"))
+                        .get(0)
+                        .getValue();
+            } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
                 log.error("could not find catalogID, not deleting bag", e);
             }
+            //check for other processes waiting to start a bagit export
+            startOtherManifestations(so);
+
             if (fileName.equals(catalogID)) {
                 log.debug("archive-service: attempting to delete bag from s3.");
                 deleteFileFromS3(acr.getSourceLocation().getBucket(), acr.getSourceLocation().getPath().toString());
@@ -197,6 +208,123 @@ public class WellcomeEndpoints {
     }
 
     /**
+     * Searches for processes from the same multiple manifestation as the step being closed. Checks if they are waiting to start a bagit export
+     * themselves, if that is the case starts one of them.
+     * 
+     * @param step step being closed
+     */
+    private void startOtherManifestations(Step step) {
+        try {
+            List<String> stepTitles = new ArrayList<>();
+            stepTitles.add("Wait for Bagit");
+            Fileformat ff = step.getProzess().readMetadataFile();
+            DocStruct ds = ff.getDigitalDocument().getLogicalDocStruct();
+            // check if current process is MMO
+            if (ds.getType().isAnchor()) {
+                String bnumber = getBnumberFromDocstruct(ds);
+                if (StringUtils.isBlank(bnumber)) {
+                    log.error("Cannot extract bnumber from metadata file.");
+                }
+                // search for other manifestations
+                List<Integer> processIds = MetadataManager.getProcessesWithMetadata("CatalogIDDigital", bnumber);
+
+                StringBuilder processSubQuery = new StringBuilder();
+                // check, if they are in export or bagit
+                if (processIds.size() > 1) {
+                    // check all but the current process
+                    for (Integer id : processIds) {
+                        if (!step.getProzess().getId().equals(id)) {
+                            if (processSubQuery.length() > 0) {
+                                processSubQuery.append(", ");
+                            }
+                            processSubQuery.append(id);
+                        }
+                    }
+                }
+                if (processSubQuery.length() == 0) {
+                    // no other processes found, continue
+                    return;
+                }
+                // prepares sql expression for list of possible step names
+                StringBuilder titleSubQuery = new StringBuilder();
+                for (String stepname : stepTitles) {
+                    if (titleSubQuery.length() == 0) {
+                        titleSubQuery.append("(");
+                    } else {
+                        titleSubQuery.append(" or ");
+                    }
+                    titleSubQuery.append("titel = \"");
+                    titleSubQuery.append(stepname);
+                    titleSubQuery.append("\"");
+                }
+                titleSubQuery.append(")");
+                //get Id of steps waiting to start bagit export
+                StringBuilder sqlQuery = new StringBuilder();
+                sqlQuery.append("SELECT DISTINCT ");
+                sqlQuery.append("    SchritteID ");
+                sqlQuery.append("FROM ");
+                sqlQuery.append("    schritte ");
+                sqlQuery.append("WHERE ");
+
+                sqlQuery.append(titleSubQuery.toString());
+                sqlQuery.append("    AND ProzesseID IN (");
+                sqlQuery.append(processSubQuery.toString());
+                sqlQuery.append(")");
+                sqlQuery.append(" AND ");
+                sqlQuery.append(" Bearbeitungsstatus =\"1\"");
+
+            }
+        } catch (ReadException | PreferencesException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
+            log.error(e);
+        }
+    }
+
+    /**
+     * Iterates through metadata in passed Docstruct and returns the value of CatalogIDDigital
+     * 
+     * @param ds
+     * @return value of "CatalogIDDigital
+     */
+    private String getBnumberFromDocstruct(DocStruct ds) {
+        List<? extends Metadata> metadata = ds.getAllMetadata();
+        for (Metadata md : metadata) {
+            if ("CatalogIDDigital".equals(md.getType().getName())) {
+                return md.getValue();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Executes passed sql query assumes the returned list of integers are step ids and closes one of them
+     * 
+     * @param sql
+     * @return
+     */
+    public boolean checkProcessStatus(String sql) {
+
+        Connection connection = null;
+        try {
+            connection = MySQLHelper.getInstance().getConnection();
+            List<Integer> stepIds = new QueryRunner().query(connection, sql, MySQLHelper.resultSetToIntegerListHandler);
+            if (!stepIds.isEmpty()) {
+                Step nextStep = StepManager.getStepById(stepIds.get(0));
+                CloseStepHelper.closeStep(nextStep, null);
+            }
+        } catch (SQLException e) {
+            log.error(e);
+        } finally {
+            if (connection != null) {
+                try {
+                    MySQLHelper.closeConnection(connection);
+                } catch (SQLException e) {
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
      * deletes passed file from Amazon s3 (or if configured a custom s3)
      * 
      * @param bucket
@@ -211,10 +339,11 @@ public class WellcomeEndpoints {
             clientConfiguration.setSignerOverride("AWSS3V4SignerType");
 
             s3 = AmazonS3ClientBuilder.standard()
-                    .withEndpointConfiguration(
-                            new AwsClientBuilder.EndpointConfiguration(conf.getS3Endpoint(), Regions.US_EAST_1.name()))
-                    .withPathStyleAccessEnabled(true).withClientConfiguration(clientConfiguration)
-                    .withCredentials(new AWSStaticCredentialsProvider(credentials)).build();
+                    .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(conf.getS3Endpoint(), Regions.US_EAST_1.name()))
+                    .withPathStyleAccessEnabled(true)
+                    .withClientConfiguration(clientConfiguration)
+                    .withCredentials(new AWSStaticCredentialsProvider(credentials))
+                    .build();
         } else {
             s3 = AmazonS3ClientBuilder.defaultClient();
         }
@@ -224,18 +353,17 @@ public class WellcomeEndpoints {
     @Path("/create")
     @POST
     @Produces("text/xml")
-    public Response createNewProcess(@HeaderParam("templateid") int templateId,
-            @HeaderParam("marcfile") String marcfile, @HeaderParam("collection") String collectionName) {
+    public Response createNewProcess(@HeaderParam("templateid") int templateId, @HeaderParam("marcfile") String marcfile,
+            @HeaderParam("collection") String collectionName) {
 
         if (StringUtils.isBlank(marcfile)) {
-            Response resp = Response.status(Response.Status.BAD_REQUEST)
-                    .entity(createErrorResponse("Parameter marc file is missing or empty.")).build();
+            Response resp =
+                    Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Parameter marc file is missing or empty.")).build();
             return resp;
         }
         java.nio.file.Path path = Paths.get(marcfile);
         if (!Files.exists(path)) {
-            Response resp = Response.status(Response.Status.BAD_REQUEST)
-                    .entity(createErrorResponse("Marc file does not exist: " + marcfile)).build();
+            Response resp = Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Marc file does not exist: " + marcfile)).build();
             return resp;
         }
 
@@ -255,8 +383,8 @@ public class WellcomeEndpoints {
 
         if (ProcessManager.countProcesses("titel LIKE '%" + filename + "%'") > 0) {
             // file already exists
-            Response resp = Response.status(Response.Status.CONFLICT).entity(
-                    createErrorResponse("Process with b-number " + filename + " already exists, you should remove it."))
+            Response resp = Response.status(Response.Status.CONFLICT)
+                    .entity(createErrorResponse("Process with b-number " + filename + " already exists, you should remove it."))
                     .build();
             return resp;
 
@@ -269,8 +397,7 @@ public class WellcomeEndpoints {
             order = filename.split("_")[1];
             if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "'") > 0) {
                 Response resp = Response.status(Response.Status.EXPECTATION_FAILED)
-                        .entity(createErrorResponse(
-                                "b-number " + anchorId + " already exists, you should move it to suspicious folder."))
+                        .entity(createErrorResponse("b-number " + anchorId + " already exists, you should move it to suspicious folder."))
                         .build();
                 return resp;
             }
@@ -279,7 +406,8 @@ public class WellcomeEndpoints {
         Process template = ProcessManager.getProcessById(templateId);
         if (template == null) {
             Response resp = Response.status(Response.Status.BAD_REQUEST)
-                    .entity(createErrorResponse("Cannot find process template with id " + templateId)).build();
+                    .entity(createErrorResponse("Cannot find process template with id " + templateId))
+                    .build();
             return resp;
         }
 
@@ -291,8 +419,8 @@ public class WellcomeEndpoints {
             doc = builder.build(marcfile);
         } catch (JDOMException | IOException e) {
             log.error(e);
-            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(createErrorResponse("Cannot read marc record " + marcfile)).build();
+            Response resp =
+                    Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot read marc record " + marcfile)).build();
             return resp;
         }
         Fileformat ff = null;
@@ -303,7 +431,8 @@ public class WellcomeEndpoints {
         }
         if (ff == null) {
             Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(createErrorResponse("Cannot convert marc record " + marcfile)).build();
+                    .entity(createErrorResponse("Cannot convert marc record " + marcfile))
+                    .build();
             return resp;
 
         }
@@ -324,7 +453,8 @@ public class WellcomeEndpoints {
         } catch (Exception e) {
             log.error(e);
             Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(createErrorResponse("Cannot create process with title " + getProcessTitle())).build();
+                    .entity(createErrorResponse("Cannot create process with title " + getProcessTitle()))
+                    .build();
             return resp;
         }
         try {
@@ -332,8 +462,7 @@ public class WellcomeEndpoints {
             WellcomeUtils.writeXmlToFile(destination, getProcessTitle() + "_mrc.xml", doc);
         } catch (SwapException | DAOException | IOException | InterruptedException e) {
             log.error(e);
-            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(createErrorResponse("Cannot save import file.")).build();
+            Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot save import file.")).build();
             return resp;
         }
 
@@ -344,8 +473,7 @@ public class WellcomeEndpoints {
         return Response.status(Response.Status.OK).entity(resp).build();
     }
 
-    private Fileformat convertMMO(Document doc, Prefs prefs, String collectionName, String order,
-            String anchorIdentifier, String volumeIdentifier) {
+    private Fileformat convertMMO(Document doc, Prefs prefs, String collectionName, String order, String anchorIdentifier, String volumeIdentifier) {
 
         Fileformat ff = null;
         try {
@@ -411,8 +539,7 @@ public class WellcomeEndpoints {
             dsRoot.addChild(dsVolume);
 
             // Collect MODS metadata
-            WellcomeUtils.parseModsSectionForMultivolumes(MODS_MAPPING_FILE, prefs, dsRoot, dsVolume, dsBoundBook,
-                    eleMods);
+            WellcomeUtils.parseModsSectionForMultivolumes(MODS_MAPPING_FILE, prefs, dsRoot, dsVolume, dsBoundBook, eleMods);
 
             Metadata volumeType = new Metadata(prefs.getMetadataTypeByName("_volume"));
             volumeType.setValue(order);
@@ -431,8 +558,7 @@ public class WellcomeEndpoints {
                 if (md.getValue().matches("\\d\\d\\d\\d")) {
                     order = md.getValue() + order;
                 }
-            } else if (dsVolume.getAllMetadataByType(yearType) != null
-                    && !dsVolume.getAllMetadataByType(yearType).isEmpty()) {
+            } else if (dsVolume.getAllMetadataByType(yearType) != null && !dsVolume.getAllMetadataByType(yearType).isEmpty()) {
                 Metadata md = dsVolume.getAllMetadataByType(yearType).get(0);
                 if (md.getValue().matches("\\d\\d\\d\\d")) {
                     order = md.getValue() + order;
@@ -471,8 +597,8 @@ public class WellcomeEndpoints {
             dsRoot.addMetadata(manifestationType);
 
             generateDefaultValues(prefs, collectionName, dsRoot, dsBoundBook);
-        } catch (JDOMException | IOException | PreferencesException | TypeNotAllowedForParentException
-                | MetadataTypeNotAllowedException | TypeNotAllowedAsChildException e) {
+        } catch (JDOMException | IOException | PreferencesException | TypeNotAllowedForParentException | MetadataTypeNotAllowedException
+                | TypeNotAllowedAsChildException e) {
             log.error(e);
         }
         return ff;
@@ -602,8 +728,7 @@ public class WellcomeEndpoints {
             currentWellcomeIdentifier = WellcomeUtils.getWellcomeIdentifier(prefs, dsRoot);
 
             // Add dummy volume to anchors
-            if (dsRoot.getType().getName().equals("Periodical")
-                    || dsRoot.getType().getName().equals("MultiVolumeWork")) {
+            if (dsRoot.getType().getName().equals("Periodical") || dsRoot.getType().getName().equals("MultiVolumeWork")) {
                 DocStruct dsVolume = null;
                 if (dsRoot.getType().getName().equals("Periodical")) {
                     dsVolume = dd.createDocStruct(prefs.getDocStrctTypeByName("PeriodicalVolume"));
@@ -617,8 +742,8 @@ public class WellcomeEndpoints {
             }
             generateDefaultValues(prefs, collectionName, dsRoot, dsBoundBook);
 
-        } catch (JDOMException | IOException | PreferencesException | TypeNotAllowedForParentException
-                | MetadataTypeNotAllowedException | TypeNotAllowedAsChildException e) {
+        } catch (JDOMException | IOException | PreferencesException | TypeNotAllowedForParentException | MetadataTypeNotAllowedException
+                | TypeNotAllowedAsChildException e) {
             log.error(e);
         }
         return ff;
@@ -678,8 +803,7 @@ public class WellcomeEndpoints {
          */
         try {
             MetadataType mdt = prefs.getMetadataTypeByName("pathimagefiles");
-            List<? extends Metadata> alleImagepfade = ff.getDigitalDocument().getPhysicalDocStruct()
-                    .getAllMetadataByType(mdt);
+            List<? extends Metadata> alleImagepfade = ff.getDigitalDocument().getPhysicalDocStruct().getAllMetadataByType(mdt);
             if (alleImagepfade != null && alleImagepfade.size() > 0) {
                 for (Metadata md : alleImagepfade) {
                     ff.getDigitalDocument().getPhysicalDocStruct().getAllMetadata().remove(md);
