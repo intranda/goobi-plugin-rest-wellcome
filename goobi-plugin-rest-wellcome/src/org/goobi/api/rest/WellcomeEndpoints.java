@@ -271,8 +271,8 @@ public class WellcomeEndpoints {
                 sqlQuery.append(processSubQuery.toString());
                 sqlQuery.append(")");
                 sqlQuery.append(" AND ");
-                sqlQuery.append(" Bearbeitungsstatus =\"1\"");
-
+                sqlQuery.append(" Bearbeitungsstatus =2");
+                checkProcessStatus(sqlQuery.toString());
             }
         } catch (ReadException | PreferencesException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
             log.error(e);
