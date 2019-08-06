@@ -151,21 +151,29 @@ public class WellcomeEndpoints {
         saveProperty(so.getProzess(), "archive ingest id", acr.getId());
         Prefs prefs = so.getProzess().getRegelsatz().getPreferences();
         String catalogID = "";
+        String manifestationID = "";
         try {
-            catalogID = so.getProzess()
-                    .readMetadataFile()
-                    .getDigitalDocument()
-                    .getLogicalDocStruct()
-                    .getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital"))
-                    .get(0)
-                    .getValue();
+
+            DocStruct docstruct = so.getProzess().readMetadataFile().getDigitalDocument().getLogicalDocStruct();
+            catalogID = docstruct.getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital")).get(0).getValue();
+            if (docstruct.getType().isAnchor()) {
+                docstruct = docstruct.getAllChildren().get(0);
+                manifestationID = docstruct.getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital")).get(0).getValue();
+            }
         } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
             log.error("could not find catalogID, not deleting bag", e);
         }
+        String bNumber=null;
+        if(manifestationID.isEmpty()) {
+            bNumber=catalogID;
+        }else {
+            bNumber=manifestationID;
+        }
+        
         try {
-            String verificationMessage=verifyIngest(catalogID, so.getProzess());
+            String verificationMessage = verifyIngest(bNumber, so.getProzess());
             if (!verificationMessage.isEmpty()) {
-                String message = "Unable to verify completeness of ingest, bNumber: "+catalogID+". "+verificationMessage;
+                String message = "Unable to verify completeness of ingest, bNumber: " + catalogID + ". " + verificationMessage;
                 writeToLog(so, message, "error");
                 return Response.noContent().build();
             } else {
@@ -257,7 +265,7 @@ public class WellcomeEndpoints {
         if (lastIndex < 0) {
             lastIndex = bNumber.length();
         } else {
-            manifestation = bNumber.substring(lastIndex+1);
+            manifestation = bNumber.substring(lastIndex + 1);
         }
         String bNumberBase = bNumber.substring(0, lastIndex);
         XMLConfiguration xmlConfig = ConfigPlugins.getPluginConfig(PLUGIN_NAME);
