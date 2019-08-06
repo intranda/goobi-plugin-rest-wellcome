@@ -163,8 +163,9 @@ public class WellcomeEndpoints {
             log.error("could not find catalogID, not deleting bag", e);
         }
         try {
-            if (!verifyIngest(catalogID, so.getProzess())) {
-                String message = "Unable to verify completeness of ingest.";
+            String verificationMessage=verifyIngest(catalogID, so.getProzess());
+            if (!verificationMessage.isEmpty()) {
+                String message = "Unable to verify completeness of ingest. "+verificationMessage;
                 writeToLog(so, message, "error");
                 return Response.noContent().build();
             } else {
@@ -249,7 +250,7 @@ public class WellcomeEndpoints {
      * @throws SwapException
      * @throws DAOException
      */
-    private boolean verifyIngest(String bNumber, Process process)
+    private String verifyIngest(String bNumber, Process process)
             throws HttpException, IOException, InterruptedException, SwapException, DAOException {
         int lastIndex = bNumber.lastIndexOf('_');
         String manifestation = null;
@@ -282,7 +283,6 @@ public class WellcomeEndpoints {
         } catch (IOException e) {
             log.error("unable to obtain authentication token to check if bag already exists", e);
             throw new HttpException();
-            //          return Optional.empty();
         }
         HttpResponse resp2;
         String digitizedResponse;
@@ -291,8 +291,9 @@ public class WellcomeEndpoints {
             digitizedResponse = parseResponse(resp2);
 
         } catch (IOException e) {
-            log.error("unable to query if previous instance of this bag already exists on the service", e);
-            return false;
+            String message = "unable to query if previous instance of this bag already exists on the service";
+            log.error(message, e);
+            return message;
         }
         if (resp2.getStatusLine().getStatusCode() < 300) {
             ResponseJson json = gson.fromJson(digitizedResponse, ResponseJson.class);
@@ -312,9 +313,15 @@ public class WellcomeEndpoints {
             if (manifestation != null) {
                 metsfiles = 2;
             }
-            return (files.size() - imageList.size() - ocrList.size() - metsfiles == 0);
+            if (files.size() - imageList.size() - ocrList.size() - metsfiles == 0) {
+                return "";
+            }
+            return String.format(
+                    "Did not find expected Number of files in storage manifest. Storage manifest: %s files, Imagefolder: %s, Ocr results: %s, Mets files: %s",
+                    files.size(), imageList.size(), ocrList.size(), metsfiles);
         } else {
-            return false;
+            return String.format("Could not obtain storage manifest from storage service, response code was %s, response body was: %s",
+                    resp.getStatusLine().getStatusCode(), digitizedResponse);
         }
     }
 
