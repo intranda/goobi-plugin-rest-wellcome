@@ -165,7 +165,7 @@ public class WellcomeEndpoints {
         try {
             String verificationMessage=verifyIngest(catalogID, so.getProzess());
             if (!verificationMessage.isEmpty()) {
-                String message = "Unable to verify completeness of ingest. "+verificationMessage;
+                String message = "Unable to verify completeness of ingest, bNumber: "+catalogID+". "+verificationMessage;
                 writeToLog(so, message, "error");
                 return Response.noContent().build();
             } else {
@@ -257,7 +257,7 @@ public class WellcomeEndpoints {
         if (lastIndex < 0) {
             lastIndex = bNumber.length();
         } else {
-            manifestation = bNumber.split("_")[1];
+            manifestation = bNumber.substring(lastIndex+1);
         }
         String bNumberBase = bNumber.substring(0, lastIndex);
         XMLConfiguration xmlConfig = ConfigPlugins.getPluginConfig(PLUGIN_NAME);
