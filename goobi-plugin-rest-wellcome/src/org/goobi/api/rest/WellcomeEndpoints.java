@@ -1,6 +1,9 @@
 package org.goobi.api.rest;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringWriter;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -21,10 +24,18 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.dbutils.QueryRunner;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.SystemUtils;
+import org.apache.http.HttpException;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.fluent.Request;
+import org.apache.http.entity.ContentType;
 import org.goobi.api.rest.model.ArchiveCallbackRequest;
+import org.goobi.api.rest.model.FileJson;
+import org.goobi.api.rest.model.ResponseJson;
 import org.goobi.api.rest.response.WellcomeCreationResponse;
 import org.goobi.beans.LogEntry;
 import org.goobi.beans.Process;
@@ -48,13 +59,18 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 
+import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.config.ConfigurationHelper;
 import de.sub.goobi.helper.BeanHelper;
 import de.sub.goobi.helper.CloseStepHelper;
 import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.JwtHelper;
 import de.sub.goobi.helper.ScriptThreadWithoutHibernate;
+import de.sub.goobi.helper.StorageProvider;
 import de.sub.goobi.helper.enums.PropertyType;
 import de.sub.goobi.helper.enums.StepEditType;
 import de.sub.goobi.helper.enums.StepStatus;
@@ -88,8 +104,9 @@ public class WellcomeEndpoints {
     private static final String XSLT = ConfigurationHelper.getInstance().getXsltFolder() + "MARC21slim2MODS3.xsl";
     private static final String MODS_MAPPING_FILE = ConfigurationHelper.getInstance().getXsltFolder() + "mods_map.xml";
     private static final Namespace MARC = Namespace.getNamespace("marc", "http://www.loc.gov/MARC21/slim");
+    private static final String PLUGIN_NAME = "intranda_rest_wellcome";
 
-    private Map<String, String> map = new HashMap<String, String>();
+    private Map<String, String> map = new HashMap<>();
 
     private String currentIdentifier;
     private String currentWellcomeIdentifier;
@@ -123,7 +140,6 @@ public class WellcomeEndpoints {
                 return Response.status(401).entity("token not valid or claims not correct").build();
             }
         } catch (ConfigurationException e1) {
-            // TODO Auto-generated catch block
             log.error(e1);
             return Response.status(500).entity("Internal server error: Goobi misconfiguration. See logs for details.").build();
         }
@@ -133,15 +149,31 @@ public class WellcomeEndpoints {
             return Response.status(404).entity("step not found").build();
         }
         saveProperty(so.getProzess(), "archive ingest id", acr.getId());
+        Prefs prefs = so.getProzess().getRegelsatz().getPreferences();
+        String catalogID = "";
+        try {
+            catalogID = so.getProzess()
+                    .readMetadataFile()
+                    .getDigitalDocument()
+                    .getLogicalDocStruct()
+                    .getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital"))
+                    .get(0)
+                    .getValue();
+        } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
+            log.error("could not find catalogID, not deleting bag", e);
+        }
+        try {
+            if (!verifyIngest(catalogID, so.getProzess())) {
+                String message = "Unable to verify completeness of ingest.";
+                writeToLog(so, message, "error");
+                return Response.noContent().build();
+            }
+        } catch (HttpException | IOException | InterruptedException | SwapException | DAOException e) {
+            log.error("Failed to verify completeness of ingest", e);
+        }
         if ("succeeded".equals(acr.getStatus().get("id"))) {
-            LogEntry logEntry = new LogEntry();
-            logEntry.setContent("Received callback request from archive service. Status is 'succeeded'.");
-            logEntry.setCreationDate(new Date());
-            logEntry.setProcessId(so.getProcessId());
-            logEntry.setType(LogType.getByTitle("info"));
-            logEntry.setUserName("webapi");
-            ProcessManager.saveLogEntry(logEntry);
-
+            String message = "Received callback request from archive service. Status is 'succeeded'.";
+            writeToLog(so, message, "info");
             log.debug("archive-callback: archiving succeeded. Closing step.");
             //            so.setBearbeitungsstatusEnum(StepStatus.DONE);
             CloseStepHelper.closeStep(so, null);
@@ -156,35 +188,17 @@ public class WellcomeEndpoints {
             if (dotIndex > 0) {
                 fileName = fileName.substring(0, dotIndex);
             }
-            Prefs prefs = so.getProzess().getRegelsatz().getPreferences();
-            String catalogID = "";
-            try {
-                catalogID = so.getProzess()
-                        .readMetadataFile()
-                        .getDigitalDocument()
-                        .getLogicalDocStruct()
-                        .getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital"))
-                        .get(0)
-                        .getValue();
-            } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
-                log.error("could not find catalogID, not deleting bag", e);
-            }
             //check for other processes waiting to start a bagit export
             startOtherManifestations(so);
 
             if (fileName.equals(catalogID)) {
                 log.debug("archive-service: attempting to delete bag from s3.");
-                deleteFileFromS3(acr.getSourceLocation().getBucket(), acr.getSourceLocation().getPath().toString());
+                deleteFileFromS3(acr.getSourceLocation().getBucket(), acr.getSourceLocation().getPath());
             }
             return Response.noContent().build();
         } else if ("failed".equals(acr.getStatus().get("id"))) {
-            LogEntry logEntry = new LogEntry();
-            logEntry.setContent("Received callback request from archive service. Status is 'failed'.");
-            logEntry.setCreationDate(new Date());
-            logEntry.setProcessId(so.getProcessId());
-            logEntry.setType(LogType.getByTitle("error"));
-            logEntry.setUserName("webapi");
-            ProcessManager.saveLogEntry(logEntry);
+            String message = "Received callback request from archive service. Status is 'failed'.";
+            writeToLog(so, message, "error");
             log.debug("archive service notified status 'failed'. Setting step to error.");
             so.setBearbeitungsstatusEnum(StepStatus.ERROR);
             try {
@@ -195,16 +209,162 @@ public class WellcomeEndpoints {
             }
             return Response.noContent().build();
         } else {
-            LogEntry logEntry = new LogEntry();
-            logEntry.setContent("Received callback request from archive service. Status is either not set or unknown to Goobi. See log for details.");
-            logEntry.setCreationDate(new Date());
-            logEntry.setProcessId(so.getProcessId());
-            logEntry.setType(LogType.getByTitle("warn"));
-            logEntry.setUserName("webapi");
-            ProcessManager.saveLogEntry(logEntry);
+            String message = "Received callback request from archive service. Status is either not set or unknown to Goobi. See log for details.";
+            writeToLog(so, message, "warn");
             log.debug("archive service notified no or unknown status. Deserialized body was:\n" + acr);
         }
         return Response.noContent().build();
+    }
+
+    /**
+     * Writes message to the Processlog for step so, takes logtype as string
+     * 
+     * @param so step object
+     * @param message
+     * @param logType name of the logtype as String
+     */
+    private void writeToLog(Step so, String message, String logType) {
+        LogEntry logEntry = new LogEntry();
+        logEntry.setContent(message);
+        logEntry.setCreationDate(new Date());
+        logEntry.setProcessId(so.getProcessId());
+        logEntry.setType(LogType.getByTitle(logType));
+        logEntry.setUserName("webapi");
+        ProcessManager.saveLogEntry(logEntry);
+    }
+
+    /**
+     * Checks whether the Bag has been ingested successfully, by getting the manifest from the storage service and comparing the number of files with
+     * the local process.
+     * 
+     * @param bNumber bnumber of the process
+     * @param process Process object
+     * @return
+     * @throws HttpException
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws SwapException
+     * @throws DAOException
+     */
+    private boolean verifyIngest(String bNumber, Process process)
+            throws HttpException, IOException, InterruptedException, SwapException, DAOException {
+        int lastIndex = bNumber.lastIndexOf('_');
+        String manifestation = null;
+        if (lastIndex < 0) {
+            lastIndex = bNumber.length();
+        } else {
+            manifestation = bNumber.split("_")[1];
+        }
+        String bNumberBase = bNumber.substring(0, lastIndex);
+        XMLConfiguration xmlConfig = ConfigPlugins.getPluginConfig(PLUGIN_NAME);
+        //            xmlConfig = new XMLConfiguration("/opt/digiverso/goobi/config/plugin_auth_config.xml");
+        String clientId = xmlConfig.getString("clientID");
+        String clientSecret = xmlConfig.getString("clientSecret");
+        String authEndpoint = xmlConfig.getString("authEndpoint", "https://auth.wellcomecollection.org/oauth2/token");
+        String digitizedEndpoint = xmlConfig.getString("digitizedEndpoint", "https://api.wellcomecollection.org/storage/v1/bags/digitised/");
+        digitizedEndpoint += bNumberBase;
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        HttpResponse resp;
+        String token;
+        try {
+            resp = requestToken(clientId, clientSecret, authEndpoint);
+            if (resp.getStatusLine().getStatusCode() < 300) {
+                String jsonResp = parseResponse(resp);
+                JsonElement response = gson.fromJson(jsonResp, JsonElement.class);
+                token = response.getAsJsonObject().get("access_token").getAsString();
+            } else {
+                log.error("unable to obtain authentication token to check if bag already exists");
+                throw new HttpException();
+            }
+        } catch (IOException e) {
+            log.error("unable to obtain authentication token to check if bag already exists", e);
+            throw new HttpException();
+            //          return Optional.empty();
+        }
+        HttpResponse resp2;
+        String digitizedResponse;
+        try {
+            resp2 = Request.Get(digitizedEndpoint).addHeader("Authorization", "Bearer " + token).execute().returnResponse();
+            digitizedResponse = parseResponse(resp2);
+
+        } catch (IOException e) {
+            log.error("unable to query if previous instance of this bag already exists on the service", e);
+            return false;
+        }
+        if (resp2.getStatusLine().getStatusCode() < 300) {
+            ResponseJson json = gson.fromJson(digitizedResponse, ResponseJson.class);
+            List<FileJson> files = json.getManifest().getFiles();
+            if (manifestation != null) {
+                List<FileJson> toDelete = new ArrayList<>();
+                for (FileJson file : files) {
+                    if (Integer.parseInt(manifestation) != getManifestationNumber(file.getPath())) {
+                        toDelete.add(file);
+                    }
+                }
+                files.removeAll(toDelete);
+            }
+            List<String> imageList = StorageProvider.getInstance().list(process.getImagesOrigDirectory(false));
+            List<String> ocrList = StorageProvider.getInstance().list(process.getOcrAltoDirectory());
+            int metsfiles = 1;
+            if (manifestation != null) {
+                metsfiles = 2;
+            }
+            return (files.size() - imageList.size() - ocrList.size() - metsfiles == 0);
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Assumes the file names are structured such that it starts with the bNumber of the anchor which is followed by '_' and the number of the
+     * manifestation
+     * 
+     * @param imageName
+     * @return
+     */
+    private int getManifestationNumber(String imageName) {
+        String fileName = Paths.get(imageName).getFileName().toString();
+        String[] nameElements = fileName.split("_");
+        if (nameElements.length > 2 || !fileName.contains(".")) {
+            return Integer.parseInt(nameElements[1]);
+        } else {
+            String[] lastNameBit = nameElements[1].split("\\.");
+            return Integer.parseInt(lastNameBit[0]);
+        }
+    }
+
+    /**
+     * Requests a Token from authEndpoint using grant type client credentials, providing clientId and clientSecret
+     * 
+     * @param clientId
+     * @param clientSecret to authenticate the client id
+     * @param authEndpoint url which provides authentication tokens
+     * @return
+     * @throws IOException
+     */
+    private HttpResponse requestToken(String clientId, String clientSecret, String authEndpoint) throws IOException {
+        HttpResponse resp;
+        StringBuilder body = new StringBuilder();
+        body.append("client_id=" + clientId);
+        body.append("&client_secret=" + clientSecret);
+        body.append("&grant_type=client_credentials");
+        resp = Request.Post(authEndpoint).bodyString(body.toString(), ContentType.APPLICATION_FORM_URLENCODED).execute().returnResponse();
+        return resp;
+    }
+
+    /**
+     * Takes HttpResponse object and returns its content as String
+     * 
+     * @param resp
+     * @return
+     * @throws IOException
+     */
+    private String parseResponse(HttpResponse resp) throws IOException {
+        StringWriter w = new StringWriter();
+        try (InputStream is = resp.getEntity().getContent()) {
+            IOUtils.copy(is, w, Charset.forName("UTF-8"));
+        }
+        return w.toString();
     }
 
     /**

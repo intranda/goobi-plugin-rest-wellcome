@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config_plugin>
+	<!-- client id to get the token -->
+	<clientID></clientID>
+	<!-- secret for above id -->
+	<clientSecret></clientSecret>
+	<!-- endpoint to request token from; defaults to "https://auth.wellcomecollection.org/oauth2/token"-->
+	<authEndpoint>https://auth.wellcomecollection.org/oauth2/token</authEndpoint>
+	<!-- endpoint to request ingestion of bag with token; defaults to "https://api.wellcomecollection.org/storage/v1/ingests" -->
+	<digitizedEndpoint>https://archive-storage-api-1167388359.eu-west-1.elb.amazonaws.com/storage/v1/ingests</digitizedEndpoint>
+</config_plugin>
