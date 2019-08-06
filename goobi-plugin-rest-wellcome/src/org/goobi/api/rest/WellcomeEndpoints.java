@@ -167,6 +167,9 @@ public class WellcomeEndpoints {
                 String message = "Unable to verify completeness of ingest.";
                 writeToLog(so, message, "error");
                 return Response.noContent().build();
+            } else {
+                String message = "Verification of ingest successful.";
+                writeToLog(so, message, "info");
             }
         } catch (HttpException | IOException | InterruptedException | SwapException | DAOException e) {
             log.error("Failed to verify completeness of ingest", e);
