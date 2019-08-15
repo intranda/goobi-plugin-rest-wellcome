@@ -1,24 +1,24 @@
-<project name="Goobi RESTful Plugin" basedir="." default="deploy">
+<project name="goobi-plugin-rest-wellcome" basedir="." default="devbuild">
 
     <!-- =================================
               properties
            ================================= -->
-    <property name="filename" value="plugin_intranda_rest_wellcome" />
-    <property name="dir.build" value="bin" />
-    <property name="dir.deploy" value="deploy" />
-    <property name="pluginFolderWin" value="C:/Goobi/plugins/GUI/" />
-    <property name="pluginFolderUnix" value="/opt/digiverso/goobi/plugins/GUI/" />
+    <property name="filename" value="plugin_intranda_rest_wellcome"/>
+    <property name="dir.build" value="bin"/>
+    <property name="dir.deploy" value="deploy"/>
+    <property name="pluginFolderWin" value="C:/Goobi/plugins/GUI/"/>
+    <property name="pluginFolderUnix" value="/opt/digiverso/goobi/plugins/GUI/"/>
     <property name="jenkins.classpath" value="/nonexistant"/>
     <path id="classpath">
-        <fileset dir="/opt/digiverso/goobilibs/lib" />
-        <fileset dir="/opt/digiverso/libs" />
+        <fileset dir="/opt/digiverso/goobilibs/lib"/>
+        <fileset dir="/opt/digiverso/libs"/>
     </path>
     <path id="jenkins-classpath">
         <fileset dir="${jenkins.classpath}"/>
-        <fileset dir="/opt/digiverso/libs" />
+        <fileset dir="/opt/digiverso/libs"/>
     </path>
     <tstamp>
-        <format property="tstamped-file-name" pattern="yyyy-MM-dd" locale="en,UK" />
+        <format property="tstamped-file-name" pattern="yyyy-MM-dd" locale="en,UK"/>
     </tstamp>
 
     <!-- =================================
@@ -29,28 +29,28 @@
     <target name="clean" description="Clean up generated and compiled files.">
         <echo>Cleaning up workspace...</echo>
         <!--<delete dir="${dir.build}" />-->
-        <delete dir="${dir.deploy}" />
+        <delete dir="${dir.deploy}"/>
     </target>
 
     <!-- Create needed directories -->
     <target name="createDirs" description="Create needed directories.">
         <echo>Creating needed directories...</echo>
-        <mkdir dir="${dir.build}" />
-        <mkdir dir="${dir.deploy}" />
+        <mkdir dir="${dir.build}"/>
+        <mkdir dir="${dir.deploy}"/>
     </target>
 
     <!-- Store git revision in internal variable -->
     <target name="git.revision" description="Store git revision in ${repository.version}">
         <exec executable="git" outputproperty="git.revision" failifexecutionfails="false" errorproperty="">
-            <arg value="describe" />
-            <arg value="--tags" />
-            <arg value="--always" />
-            <arg value="HEAD" />
+            <arg value="describe"/>
+            <arg value="--tags"/>
+            <arg value="--always"/>
+            <arg value="HEAD"/>
         </exec>
         <condition property="repository.version" value="${git.revision}" else="unknown">
             <and>
-                <isset property="git.revision" />
-                <length string="${git.revision}" trim="yes" length="0" when="greater" />
+                <isset property="git.revision"/>
+                <length string="${git.revision}" trim="yes" length="0" when="greater"/>
             </and>
         </condition>
         <echo> Git revision is: ${git.revision}</echo>
@@ -62,16 +62,16 @@
 
     <!--  copyToPluginFolder, depending on OS -->
     <target name="copyToPluginFolder" depends="linux,win32">
-        <antcall target="clean" />
+        <antcall target="clean"/>
     </target>
     <target name="linux" if="isUnix">
         <echo>Using Linux path: ${pluginFolderUnix}</echo>
-  <copy tofile="${pluginFolderUnix}/${filename}.jar" file="${dir.deploy}/${filename}-${git.revision}.jar" overwrite="true" />
+  <copy tofile="${pluginFolderUnix}/${filename}.jar" file="${dir.deploy}/${filename}-${git.revision}.jar" overwrite="true"/>
 
     </target>
     <target name="win32" if="isWindows">
         <echo>Using Windows path: ${pluginFolderWin}</echo>
-        <copy tofile="${pluginFolderWin}$${filename}-${git.revision}.jar" file="${dir.deploy}/${filename}-${git.revision}.jar" overwrite="true" />
+        <copy tofile="${pluginFolderWin}$${filename}-${git.revision}.jar" file="${dir.deploy}/${filename}-${git.revision}.jar" overwrite="true"/>
     </target>
 
     <!-- =================================
@@ -80,10 +80,10 @@
 
         <target name="compile-jenkins" if="${jenkins}">
                 <echo>Using jenkins compiler</echo>
-                <javac destdir="${dir.build}" includeantruntime="false"  target="7" encoding="UTF8" source="7" debug="true" debuglevel="lines,vars,source">
-                        <classpath refid="jenkins-classpath" />
-                        <compilerarg value="-Xlint" />
-                        <src path="src" />
+                <javac destdir="${dir.build}" includeantruntime="false" target="7" encoding="UTF8" source="7" debug="true" debuglevel="lines,vars,source">
+                        <classpath refid="jenkins-classpath"/>
+                        <compilerarg value="-Xlint"/>
+                        <src path="src"/>
                         <!--                    <src path="../Goobi/WEB-INF/src" /> -->
 <!--            <src path="../Goobi/src" />
                         <src path="../Goobi/src-dubious" />                     -->
@@ -92,10 +92,10 @@
 
         <target name="compile-eclipse" unless="jenkins">
                 <echo>Using eclipse compiler</echo>
-                <javac destdir="${dir.build}" includeantruntime="false"  target="7" encoding="UTF8" source="7" debug="true" debuglevel="lines,vars,source">
-                        <classpath refid="classpath" />
-                        <compilerarg value="-Xlint" />
-                        <src path="src" />
+                <javac destdir="${dir.build}" includeantruntime="false" target="7" encoding="UTF8" source="7" debug="true" debuglevel="lines,vars,source">
+                        <classpath refid="classpath"/>
+                        <compilerarg value="-Xlint"/>
+                        <src path="src"/>
                 </javac>
         </target>
 
@@ -103,9 +103,9 @@
     <target name="compile">
         <echo>Using eclipse compiler</echo>
         <javac destdir="${dir.build}" includeantruntime="false">
-            <classpath refid="classpath" />
-            <compilerarg value="-Xlint" />
-            <src path="src" />
+            <classpath refid="classpath"/>
+            <compilerarg value="-Xlint"/>
+            <src path="src"/>
         </javac>
     </target>
 
@@ -117,8 +117,8 @@
         <target name="jar-jenkins" if="jenkins">
                 <jar destfile="${dir.deploy}/${filename}-${git.revision}.jar">
                         <manifest>
-                                <attribute name="Main-Class" value="de.intranda.goobi.PluginInfo" />
-                                <attribute name="Class-Path" value="${libs.project}" />
+                                <attribute name="Main-Class" value="de.intranda.goobi.PluginInfo"/>
+                                <attribute name="Class-Path" value="${libs.project}"/>
                         </manifest>
                         <fileset dir="bin"/>
                 </jar>
@@ -127,10 +127,10 @@
         <target name="jar-eclipse" unless="jenkins">
                 <jar destfile="${dir.deploy}/${filename}-${git.revision}.jar">
                         <manifest>
-                                <attribute name="Main-Class" value="de.intranda.goobi.PluginInfo" />
-                                <attribute name="Class-Path" value="${libs.project}" />
+                                <attribute name="Main-Class" value="de.intranda.goobi.PluginInfo"/>
+                                <attribute name="Class-Path" value="${libs.project}"/>
                         </manifest>
-                        <fileset dir="bin" />
+                        <fileset dir="bin"/>
                 </jar>
         </target>
 
@@ -138,11 +138,11 @@
     <target name="jar">
         <jar destfile="${dir.deploy}/${filename}-${git.revision}.jar">
             <manifest>
-                <attribute name="Main-Class" value="de.intranda.goobi.PluginInfo" />
-                <attribute name="Class-Path" value="${libs.project}" />
+                <attribute name="Main-Class" value="de.intranda.goobi.PluginInfo"/>
+                <attribute name="Class-Path" value="${libs.project}"/>
             </manifest>
             <fileset dir="GUI">
-                <include name="META-INF/faces-config.xml" />
+                <include name="META-INF/faces-config.xml"/>
             </fileset>
         </jar>
     </target>
@@ -150,10 +150,10 @@
     <target name="jar-gui">
         <jar destfile="${dir.deploy}/${filename}.jar">
             <manifest>
-                <attribute name="Class-Path" value="${libs.project}" />
+                <attribute name="Class-Path" value="${libs.project}"/>
             </manifest>
             <fileset dir="GUI">
-                <include name="META-INF/faces-config.xml" />
+                <include name="META-INF/faces-config.xml"/>
             </fileset>
             <fileset dir="bin">
 
@@ -169,12 +169,12 @@
 
     <target name="jar.runnable" depends="git.revision">
       <echo>Compile sources ...</echo>
-                <antcall target="compile-jenkins" />
-                <antcall target="compile-eclipse" />
+                <antcall target="compile-jenkins"/>
+                <antcall target="compile-eclipse"/>
 
                 <echo>Generating jar file: ${dir.deploy}/${filename}-${git.revision}.jar</echo>
-                <antcall target="jar-jenkins" />
-                <antcall target="jar-eclipse" />
+                <antcall target="jar-jenkins"/>
+                <antcall target="jar-eclipse"/>
 
     </target>
 
@@ -183,7 +183,7 @@
            ================================= -->
 
     <!-- Run all targets in appropiate order for clean compile-->
-    <target name="dist" depends="clean, createDirs, git.revision, jar.runnable" description="Creating everything for Jenkins." />
+    <target name="dist" depends="clean, createDirs, git.revision, jar.runnable" description="Creating everything for Jenkins."/>
 
     <!-- =================================
                       DEPLOY
@@ -192,14 +192,13 @@
     <!-- Default target that compiles the jar from eclipse and copies it to the right folder depending on operating system-->
     <target name="deploy" depends="jar.runnable" description="Default target for Eclipse compiling with correct deployment">
         <condition property="isWindows">
-            <os family="windows" />
+            <os family="windows"/>
         </condition>
         <condition property="isUnix">
-            <os family="unix" />
+            <os family="unix"/>
         </condition>
-        <antcall target="copyToPluginFolder" />
+        <antcall target="copyToPluginFolder"/>
         <echo>intranda... alles ist gut!</echo>
     </target>
 
 </project>
-
