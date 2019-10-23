@@ -169,7 +169,7 @@ public class WellcomeEndpoints {
         }else {
             bNumber=manifestationID;
         }
-        
+
         try {
             String verificationMessage = verifyIngest(bNumber, so.getProzess());
             if (!verificationMessage.isEmpty()) {
@@ -196,7 +196,7 @@ public class WellcomeEndpoints {
                 return Response.status(500).build();
             }
             String fileName = acr.getSourceLocation().getPath();
-            int dotIndex = fileName.lastIndexOf('.');
+            int dotIndex = fileName.indexOf('.');
             if (dotIndex > 0) {
                 fileName = fileName.substring(0, dotIndex);
             }
