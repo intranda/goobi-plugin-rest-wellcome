@@ -163,11 +163,11 @@ public class WellcomeEndpoints {
         } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
             log.error("could not find catalogID, not deleting bag", e);
         }
-        String bNumber=null;
-        if(manifestationID.isEmpty()) {
-            bNumber=catalogID;
-        }else {
-            bNumber=manifestationID;
+        String bNumber = null;
+        if (manifestationID.isEmpty()) {
+            bNumber = catalogID;
+        } else {
+            bNumber = manifestationID;
         }
 
         try {
@@ -309,7 +309,8 @@ public class WellcomeEndpoints {
             if (manifestation != null) {
                 List<FileJson> toDelete = new ArrayList<>();
                 for (FileJson file : files) {
-                    if (Integer.parseInt(manifestation) != getManifestationNumber(file.getPath())) {
+                    int manifestationNumber = getManifestationNumber(file.getPath());
+                    if (manifestationNumber != -1 && Integer.parseInt(manifestation) != manifestationNumber) {
                         toDelete.add(file);
                     }
                 }
@@ -338,11 +339,15 @@ public class WellcomeEndpoints {
      * manifestation
      * 
      * @param imageName
-     * @return
+     * @return -1 if the file has no suffix or the manifestation number as int
      */
     private int getManifestationNumber(String imageName) {
         String fileName = Paths.get(imageName).getFileName().toString();
         String[] nameElements = fileName.split("_");
+        if (nameElements.length == 1) {
+            // METS file has no manifestation suffix
+            return -1;
+        }
         if (nameElements.length > 2 || !fileName.contains(".")) {
             return Integer.parseInt(nameElements[1]);
         } else {
