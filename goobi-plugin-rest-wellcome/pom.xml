@@ -10,6 +10,7 @@
 		</repository>
 	</repositories>
 	<build>
+		<finalName>plugin_intranda_rest_wellcome</finalName>
 		<sourceDirectory>src</sourceDirectory>
 		<testSourceDirectory>test/src</testSourceDirectory>
 		<resources>
