@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -316,8 +317,13 @@ public class WellcomeEndpoints {
                 }
                 files.removeAll(toDelete);
             }
-            List<String> imageList = StorageProvider.getInstance().list(process.getImagesOrigDirectory(false));
-            List<String> ocrList = StorageProvider.getInstance().list(process.getOcrAltoDirectory());
+            String imageFolder = process.getImagesTifDirectory(false);
+            String altoFolder = process.getOcrAltoDirectory();
+            if (!StorageProvider.getInstance().isDirectory(Paths.get(altoFolder))) {
+                altoFolder =  imageFolder.replace("_media", "_alto");
+            }
+            List<String> imageList = StorageProvider.getInstance().list(imageFolder, fileFilter);
+            List<String> ocrList = StorageProvider.getInstance().list(altoFolder, fileFilter);
             int metsfiles = 1;
             if (manifestation != null) {
                 metsfiles = 2;
@@ -1041,4 +1047,15 @@ public class WellcomeEndpoints {
         }
         return currentIdentifier;
     }
+
+    private static DirectoryStream.Filter<java.nio.file.Path> fileFilter = new DirectoryStream.Filter<java.nio.file.Path>() {
+
+        @Override
+        public boolean accept(java.nio.file.Path entry) throws IOException {
+            if ( !entry.getFileName().toString().startsWith(".")) {
+                return false;
+            }
+            return true;
+        }
+    };
 }
