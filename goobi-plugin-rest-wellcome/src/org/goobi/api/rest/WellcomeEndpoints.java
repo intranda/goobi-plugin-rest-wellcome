@@ -328,6 +328,10 @@ public class WellcomeEndpoints {
             if (manifestation != null) {
                 metsfiles = 2;
             }
+            if (imageList.isEmpty()) {
+                // images already deleted, number of files can not be verified
+                return "";
+            }
             if (files.size() - imageList.size() - ocrList.size() - metsfiles == 0) {
                 return "";
             }
