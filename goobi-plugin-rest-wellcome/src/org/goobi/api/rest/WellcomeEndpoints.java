@@ -171,20 +171,20 @@ public class WellcomeEndpoints {
             bNumber = manifestationID;
         }
 
-        try {
-            String verificationMessage = verifyIngest(bNumber, so.getProzess());
-            if (!verificationMessage.isEmpty()) {
-                String message = "Unable to verify completeness of ingest, bNumber: " + catalogID + ". " + verificationMessage;
-                writeToLog(so, message, "error");
-                return Response.noContent().build();
-            } else {
-                String message = "Verification of ingest successful.";
-                writeToLog(so, message, "info");
-            }
-        } catch (HttpException | IOException | InterruptedException | SwapException | DAOException e) {
-            log.error("Failed to verify completeness of ingest", e);
-        }
         if ("succeeded".equals(acr.getStatus().get("id"))) {
+            try {
+                String verificationMessage = verifyIngest(bNumber, so.getProzess());
+                if (!verificationMessage.isEmpty()) {
+                    String message = "Unable to verify completeness of ingest, bNumber: " + catalogID + ". " + verificationMessage;
+                    writeToLog(so, message, "error");
+                    return Response.noContent().build();
+                } else {
+                    String message = "Verification of ingest successful.";
+                    writeToLog(so, message, "info");
+                }
+            } catch (HttpException | IOException | InterruptedException | SwapException | DAOException e) {
+                log.error("Failed to verify completeness of ingest", e);
+            }
             String message = "Received callback request from archive service. Status is 'succeeded'.";
             writeToLog(so, message, "info");
             log.debug("archive-callback: archiving succeeded. Closing step.");
