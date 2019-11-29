@@ -177,6 +177,8 @@ public class WellcomeEndpoints {
                 if (!verificationMessage.isEmpty()) {
                     String message = "Unable to verify completeness of ingest, bNumber: " + catalogID + ". " + verificationMessage;
                     writeToLog(so, message, "error");
+                    so.setBearbeitungsstatusEnum(StepStatus.ERROR);
+                    StepManager.saveStep(so);
                     return Response.noContent().build();
                 } else {
                     String message = "Verification of ingest successful.";
@@ -190,12 +192,7 @@ public class WellcomeEndpoints {
             log.debug("archive-callback: archiving succeeded. Closing step.");
             //            so.setBearbeitungsstatusEnum(StepStatus.DONE);
             CloseStepHelper.closeStep(so, null);
-            try {
-                StepManager.saveStep(so);
-            } catch (DAOException e) {
-                log.error(e);
-                return Response.status(500).build();
-            }
+
             String fileName = acr.getSourceLocation().getPath();
             int dotIndex = fileName.indexOf('.');
             if (dotIndex > 0) {
@@ -336,7 +333,7 @@ public class WellcomeEndpoints {
                 return "";
             }
             return String.format(
-                    "Did not find expected Number of files in storage manifest. Storage manifest: %s files, Imagefolder: %s, Ocr results: %s, Mets files: %s",
+                    "Did not find expected number of files in storage manifest and file system. Found %s files in storage manifest and %s images, %s ocr results and %s mets file(s) in Goobi.",
                     files.size(), imageList.size(), ocrList.size(), metsfiles);
         } else {
             return String.format("Could not obtain storage manifest from storage service, response code was %s, response body was: %s",
