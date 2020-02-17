@@ -77,7 +77,6 @@ import de.sub.goobi.helper.enums.StepEditType;
 import de.sub.goobi.helper.enums.StepStatus;
 import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.SwapException;
-import de.sub.goobi.persistence.managers.MetadataManager;
 import de.sub.goobi.persistence.managers.MySQLHelper;
 import de.sub.goobi.persistence.managers.ProcessManager;
 import de.sub.goobi.persistence.managers.PropertyManager;
@@ -317,7 +316,7 @@ public class WellcomeEndpoints {
             String imageFolder = process.getImagesTifDirectory(false);
             String altoFolder = process.getOcrAltoDirectory();
             if (!StorageProvider.getInstance().isDirectory(Paths.get(altoFolder))) {
-                altoFolder =  imageFolder.replace("_media", "_alto");
+                altoFolder = imageFolder.replace("_media", "_alto");
             }
             List<String> imageList = StorageProvider.getInstance().list(imageFolder, fileFilter);
             List<String> ocrList = StorageProvider.getInstance().list(altoFolder, fileFilter);
@@ -405,8 +404,6 @@ public class WellcomeEndpoints {
      */
     private void startOtherManifestations(Step step) {
         try {
-            List<String> stepTitles = new ArrayList<>();
-            stepTitles.add("Wait for Bagit");
             Fileformat ff = step.getProzess().readMetadataFile();
             DocStruct ds = ff.getDigitalDocument().getLogicalDocStruct();
             // check if current process is MMO
@@ -416,53 +413,23 @@ public class WellcomeEndpoints {
                     log.error("Cannot extract bnumber from metadata file.");
                 }
                 // search for other manifestations
-                List<Integer> processIds = MetadataManager.getProcessesWithMetadata("CatalogIDDigital", bnumber);
+                List<Process> processlist = ProcessManager.getProcesses("prozesse.titel", "prozesse.titel like '%" + bnumber + "'");
 
-                StringBuilder processSubQuery = new StringBuilder();
-                // check, if they are in export or bagit
-                if (processIds.size() > 1) {
-                    // check all but the current process
-                    for (Integer id : processIds) {
-                        if (!step.getProzess().getId().equals(id)) {
-                            if (processSubQuery.length() > 0) {
-                                processSubQuery.append(", ");
+                for (Process proc : processlist) {
+                    // check, if they are in export or bagit
+                    if (!proc.getTitel().equals(step.getProzess().getTitel())) {
+                        for (Step stepToCheck : proc.getSchritte()) {
+                            // check, if they are in export or bagit
+                            if (stepToCheck.getBearbeitungsstatusEnum() == StepStatus.INWORK
+                                    && (stepToCheck.getTitel().equals("automatic MMO archive status check")
+                                            || stepToCheck.getTitel().equals("bagit creation and upload"))) {
+                                // if found, close the first one and continue
+                                CloseStepHelper.closeStep(stepToCheck, null);
+                                return;
                             }
-                            processSubQuery.append(id);
                         }
                     }
                 }
-                if (processSubQuery.length() == 0) {
-                    // no other processes found, continue
-                    return;
-                }
-                // prepares sql expression for list of possible step names
-                StringBuilder titleSubQuery = new StringBuilder();
-                for (String stepname : stepTitles) {
-                    if (titleSubQuery.length() == 0) {
-                        titleSubQuery.append("(");
-                    } else {
-                        titleSubQuery.append(" or ");
-                    }
-                    titleSubQuery.append("titel = \"");
-                    titleSubQuery.append(stepname);
-                    titleSubQuery.append("\"");
-                }
-                titleSubQuery.append(")");
-                //get Id of steps waiting to start bagit export
-                StringBuilder sqlQuery = new StringBuilder();
-                sqlQuery.append("SELECT DISTINCT ");
-                sqlQuery.append("    SchritteID ");
-                sqlQuery.append("FROM ");
-                sqlQuery.append("    schritte ");
-                sqlQuery.append("WHERE ");
-
-                sqlQuery.append(titleSubQuery.toString());
-                sqlQuery.append("    AND ProzesseID IN (");
-                sqlQuery.append(processSubQuery.toString());
-                sqlQuery.append(")");
-                sqlQuery.append(" AND ");
-                sqlQuery.append(" Bearbeitungsstatus =2");
-                checkProcessStatus(sqlQuery.toString());
             }
         } catch (ReadException | PreferencesException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
             log.error(e);
@@ -1053,7 +1020,7 @@ public class WellcomeEndpoints {
 
         @Override
         public boolean accept(java.nio.file.Path entry) throws IOException {
-            if ( !entry.getFileName().toString().startsWith(".")) {
+            if (!entry.getFileName().toString().startsWith(".")) {
                 return false;
             }
             return true;
