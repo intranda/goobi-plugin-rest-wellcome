@@ -413,7 +413,7 @@ public class WellcomeEndpoints {
                     log.error("Cannot extract bnumber from metadata file.");
                 }
                 // search for other manifestations
-                List<Process> processlist = ProcessManager.getProcesses("prozesse.titel", "prozesse.titel like '%" + bnumber + "'");
+                List<Process> processlist = ProcessManager.getProcesses("prozesse.titel", "prozesse.titel like '%" + bnumber + "%'");
 
                 for (Process proc : processlist) {
                     // check, if they are in export or bagit
