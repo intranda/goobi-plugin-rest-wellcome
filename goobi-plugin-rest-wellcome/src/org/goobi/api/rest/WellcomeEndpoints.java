@@ -992,7 +992,7 @@ public class WellcomeEndpoints {
         for (Step s : steps) {
             if (s.getBearbeitungsstatusEnum().equals(StepStatus.OPEN) && s.isTypAutomatisch()) {
                 ScriptThreadWithoutHibernate myThread = new ScriptThreadWithoutHibernate(s);
-                myThread.start();
+                myThread.startOrPutToQueue();
             }
         }
     }
