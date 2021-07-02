@@ -10,7 +10,7 @@
     </repository>
   </repositories>
   <properties>
-    <goobi.version>21.06.5</goobi.version>
+    <goobi.version>21.06.6</goobi.version>
   </properties>
   <build>
     <finalName>plugin_intranda_rest_wellcome</finalName>
@@ -73,6 +73,7 @@
                   <Implementation-Version>${project.version}</Implementation-Version>
                   <Implementation-SCM-Revision>${buildNumber}</Implementation-SCM-Revision>
                   <Implementation-SCM-Branch>${scmBranch}</Implementation-SCM-Branch>
+                  <Goobi-Version>${goobi.version}</Goobi-Version>
                 </manifestEntries>
               </manifestSection>
             </manifestSections>
