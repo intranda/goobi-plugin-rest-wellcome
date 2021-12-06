@@ -10,7 +10,7 @@
     </repository>
   </repositories>
   <properties>
-    <goobi.version>21.11.1</goobi.version>
+    <goobi.version>21.11.2</goobi.version>
   </properties>
   <build>
     <finalName>plugin_intranda_rest_wellcome</finalName>
