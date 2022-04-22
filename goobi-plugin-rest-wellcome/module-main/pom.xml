@@ -4,7 +4,7 @@
   <artifactId>goobi-plugin-rest-wellcome-main</artifactId>
   <version>1.0.0</version>
   <properties>
-    <jar.name>plugin_intranda_step_rest</jar.name>
+    <jar.name>plugin_intranda_rest_wellcome</jar.name>
     <dest.folder>/opt/digiverso/goobi/rest/</dest.folder>
   </properties>
   <parent>
