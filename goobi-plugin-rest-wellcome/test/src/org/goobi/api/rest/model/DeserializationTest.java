@@ -3,6 +3,7 @@ package org.goobi.api.rest.model;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.junit.BeforeClass;
@@ -25,7 +26,12 @@ public class DeserializationTest {
     @Test
     public void testDeserialization() throws IOException {
         ObjectMapper mapper = new ObjectMapper();
-        try (InputStream in = Files.newInputStream(Paths.get("resources/pretty_resp.json"))) {
+        Path resourceFile = Paths.get("resources/pretty_resp.json");
+        if (!Files.exists(resourceFile)) {
+            resourceFile = Paths.get("../resources/pretty_resp.json");
+        }
+
+        try (InputStream in = Files.newInputStream(resourceFile)) {
             mapper.readValue(in, ArchiveCallbackRequest.class);
         }
     }

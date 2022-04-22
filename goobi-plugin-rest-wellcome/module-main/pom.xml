@@ -14,8 +14,8 @@
   </parent>
   <build>
     <finalName>${jar.name}</finalName>
-    <sourceDirectory>${project.basedir}/../src/main/java</sourceDirectory>
-    <testSourceDirectory>${project.basedir}/../src/test/java</testSourceDirectory>
+    <sourceDirectory>${project.basedir}/../src</sourceDirectory>
+    <testSourceDirectory>${project.basedir}/../test/src</testSourceDirectory>
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
