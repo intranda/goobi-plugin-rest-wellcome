@@ -94,7 +94,6 @@ import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
 import ugh.exceptions.TypeNotAllowedAsChildException;
 import ugh.exceptions.TypeNotAllowedForParentException;
-import ugh.exceptions.WriteException;
 import ugh.fileformats.mets.MetsMods;
 
 @Path("/wellcome")
@@ -160,7 +159,7 @@ public class WellcomeEndpoints {
                 docstruct = docstruct.getAllChildren().get(0);
                 manifestationID = docstruct.getAllMetadataByType(prefs.getMetadataTypeByName("CatalogIDDigital")).get(0).getValue();
             }
-        } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
+        } catch (PreferencesException | ReadException | IOException | SwapException e) {
             log.error("could not find catalogID, not deleting bag", e);
         }
         String bNumber = null;
@@ -431,7 +430,7 @@ public class WellcomeEndpoints {
                     }
                 }
             }
-        } catch (ReadException | PreferencesException | WriteException | IOException | InterruptedException | SwapException | DAOException e) {
+        } catch (ReadException | PreferencesException  | IOException  | SwapException e) {
             log.error(e);
         }
     }
@@ -617,7 +616,7 @@ public class WellcomeEndpoints {
         try {
             String destination = process.getImportDirectory();
             WellcomeUtils.writeXmlToFile(destination, getProcessTitle() + "_mrc.xml", doc);
-        } catch (SwapException | DAOException | IOException | InterruptedException e) {
+        } catch (SwapException | IOException  e) {
             log.error(e);
             Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot save import file.")).build();
             return resp;
