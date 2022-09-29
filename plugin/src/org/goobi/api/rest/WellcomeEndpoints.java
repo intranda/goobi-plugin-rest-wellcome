@@ -38,7 +38,6 @@ import org.goobi.api.rest.model.ArchiveCallbackRequest;
 import org.goobi.api.rest.model.FileJson;
 import org.goobi.api.rest.model.ResponseJson;
 import org.goobi.api.rest.response.WellcomeCreationResponse;
-import org.goobi.beans.LogEntry;
 import org.goobi.beans.Process;
 import org.goobi.beans.Processproperty;
 import org.goobi.beans.Step;
@@ -232,13 +231,7 @@ public class WellcomeEndpoints {
      * @param logType name of the logtype as String
      */
     private void writeToLog(Step so, String message, String logType) {
-        LogEntry logEntry = new LogEntry();
-        logEntry.setContent(message);
-        logEntry.setCreationDate(new Date());
-        logEntry.setProcessId(so.getProcessId());
-        logEntry.setType(LogType.getByTitle(logType));
-        logEntry.setUserName("webapi");
-        ProcessManager.saveLogEntry(logEntry);
+        Helper.addMessageToProcessJournal(so.getProcessId(), LogType.getByTitle(logType), message, "webapi");
     }
 
     /**
