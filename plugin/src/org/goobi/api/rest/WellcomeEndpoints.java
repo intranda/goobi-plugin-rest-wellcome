@@ -405,7 +405,7 @@ public class WellcomeEndpoints {
                     log.error("Cannot extract bnumber from metadata file.");
                 }
                 // search for other manifestations
-                List<Process> processlist = ProcessManager.getProcesses("prozesse.titel", "prozesse.titel like '%" + bnumber + "%'");
+                List<Process> processlist = ProcessManager.getProcesses("prozesse.titel", "prozesse.titel like '%" + bnumber + "%'", null);
 
                 for (Process proc : processlist) {
                     // check, if they are in export or bagit
@@ -413,8 +413,8 @@ public class WellcomeEndpoints {
                         for (Step stepToCheck : proc.getSchritte()) {
                             // check, if they are in export or bagit
                             if (stepToCheck.getBearbeitungsstatusEnum() == StepStatus.INWORK
-                                    && (stepToCheck.getTitel().equals("automatic MMO archive status check")
-                                            || stepToCheck.getTitel().equals("bagit creation and upload"))) {
+                                    && ("automatic MMO archive status check".equals(stepToCheck.getTitel())
+                                            || "bagit creation and upload".equals(stepToCheck.getTitel()))) {
                                 // if found, close the first one and continue
                                 CloseStepHelper.closeStep(stepToCheck, null);
                                 return;
@@ -423,7 +423,7 @@ public class WellcomeEndpoints {
                     }
                 }
             }
-        } catch (ReadException | PreferencesException  | IOException  | SwapException e) {
+        } catch (ReadException | PreferencesException | IOException | SwapException e) {
             log.error(e);
         }
     }
@@ -609,7 +609,7 @@ public class WellcomeEndpoints {
         try {
             String destination = process.getImportDirectory();
             WellcomeUtils.writeXmlToFile(destination, getProcessTitle() + "_mrc.xml", doc);
-        } catch (SwapException | IOException  e) {
+        } catch (SwapException | IOException e) {
             log.error(e);
             Response resp = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createErrorResponse("Cannot save import file.")).build();
             return resp;
@@ -628,7 +628,7 @@ public class WellcomeEndpoints {
         try {
             Element root = doc.getRootElement();
             Element record = null;
-            if (root.getName().equalsIgnoreCase("record")) {
+            if ("record".equalsIgnoreCase(root.getName())) {
                 record = root;
             } else {
                 record = doc.getRootElement().getChild("record", MARC);
@@ -638,10 +638,10 @@ public class WellcomeEndpoints {
             String value907a = "";
 
             for (Element e907 : datafields) {
-                if (e907.getAttributeValue("tag").equals("907")) {
+                if ("907".equals(e907.getAttributeValue("tag"))) {
                     List<Element> subfields = e907.getChildren("subfield", MARC);
                     for (Element subfield : subfields) {
-                        if (subfield.getAttributeValue("code").equals("a")) {
+                        if ("a".equals(subfield.getAttributeValue("code"))) {
                             value907a = subfield.getText().replace(".", "");
                         }
                     }
@@ -649,7 +649,7 @@ public class WellcomeEndpoints {
             }
             boolean control001 = false;
             for (Element e : controlfields) {
-                if (e.getAttributeValue("tag").equals("001")) {
+                if ("001".equals(e.getAttributeValue("tag"))) {
                     e.setText(value907a);
                     control001 = true;
                     break;
@@ -671,7 +671,7 @@ public class WellcomeEndpoints {
             ff.setDigitalDocument(dd);
 
             Element eleMods = docMods.getRootElement();
-            if (eleMods.getName().equals("modsCollection")) {
+            if ("modsCollection".equals(eleMods.getName())) {
                 eleMods = eleMods.getChild("mods", null);
             }
 
@@ -807,7 +807,7 @@ public class WellcomeEndpoints {
 
             Element record = null;
             Element root = doc.getRootElement();
-            if (root.getName().equals("record")) {
+            if ("record".equals(root.getName())) {
                 record = root;
             } else {
                 record = doc.getRootElement().getChild("record", MARC);
@@ -817,10 +817,10 @@ public class WellcomeEndpoints {
             String value907a = "";
 
             for (Element e907 : datafields) {
-                if (e907.getAttributeValue("tag").equals("907")) {
+                if ("907".equals(e907.getAttributeValue("tag"))) {
                     List<Element> subfields = e907.getChildren("subfield", MARC);
                     for (Element subfield : subfields) {
-                        if (subfield.getAttributeValue("code").equals("a")) {
+                        if ("a".equals(subfield.getAttributeValue("code"))) {
                             value907a = subfield.getText().replace(".", "");
                         }
                     }
@@ -828,7 +828,7 @@ public class WellcomeEndpoints {
             }
             boolean control001 = false;
             for (Element e : controlfields) {
-                if (e.getAttributeValue("tag").equals("001")) {
+                if ("001".equals(e.getAttributeValue("tag"))) {
                     e.setText(value907a);
                     control001 = true;
                     break;
@@ -849,7 +849,7 @@ public class WellcomeEndpoints {
             ff.setDigitalDocument(dd);
 
             Element eleMods = docMods.getRootElement();
-            if (eleMods.getName().equals("modsCollection")) {
+            if ("modsCollection".equals(eleMods.getName())) {
                 eleMods = eleMods.getChild("mods", null);
             }
 
@@ -877,11 +877,11 @@ public class WellcomeEndpoints {
             currentWellcomeIdentifier = WellcomeUtils.getWellcomeIdentifier(prefs, dsRoot);
 
             // Add dummy volume to anchors
-            if (dsRoot.getType().getName().equals("Periodical") || dsRoot.getType().getName().equals("MultiVolumeWork")) {
+            if ("Periodical".equals(dsRoot.getType().getName()) || "MultiVolumeWork".equals(dsRoot.getType().getName())) {
                 DocStruct dsVolume = null;
-                if (dsRoot.getType().getName().equals("Periodical")) {
+                if ("Periodical".equals(dsRoot.getType().getName())) {
                     dsVolume = dd.createDocStruct(prefs.getDocStrctTypeByName("PeriodicalVolume"));
-                } else if (dsRoot.getType().getName().equals("MultiVolumeWork")) {
+                } else if ("MultiVolumeWork".equals(dsRoot.getType().getName())) {
                     dsVolume = dd.createDocStruct(prefs.getDocStrctTypeByName("Volume"));
                 }
                 dsRoot.addChild(dsVolume);
@@ -982,7 +982,7 @@ public class WellcomeEndpoints {
 
         List<Step> steps = StepManager.getStepsForProcess(process.getId());
         for (Step s : steps) {
-            if (s.getBearbeitungsstatusEnum().equals(StepStatus.OPEN) && s.isTypAutomatisch()) {
+            if (StepStatus.OPEN.equals(s.getBearbeitungsstatusEnum()) && s.isTypAutomatisch()) {
                 ScriptThreadWithoutHibernate myThread = new ScriptThreadWithoutHibernate(s);
                 myThread.startOrPutToQueue();
             }
