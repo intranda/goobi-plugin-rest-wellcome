@@ -700,19 +700,6 @@ public class WellcomeEndpoints {
             } else {
                 order = "" + orderNo;
             }
-            // add publication year to order
-            MetadataType yearType = prefs.getMetadataTypeByName("PublicationYear");
-            if (dsRoot.getAllMetadataByType(yearType) != null && !dsRoot.getAllMetadataByType(yearType).isEmpty()) {
-                Metadata md = dsRoot.getAllMetadataByType(yearType).get(0);
-                if (md.getValue().matches("\\d\\d\\d\\d")) {
-                    order = md.getValue() + order;
-                }
-            } else if (dsVolume.getAllMetadataByType(yearType) != null && !dsVolume.getAllMetadataByType(yearType).isEmpty()) {
-                Metadata md = dsVolume.getAllMetadataByType(yearType).get(0);
-                if (md.getValue().matches("\\d\\d\\d\\d")) {
-                    order = md.getValue() + order;
-                }
-            }
 
             currentWellcomeIdentifier = WellcomeUtils.getWellcomeIdentifier(prefs, dsRoot);
 
@@ -733,9 +720,9 @@ public class WellcomeEndpoints {
             Metadata currentNo = new Metadata(prefs.getMetadataTypeByName("CurrentNo"));
             currentNo.setValue(order);
             dsVolume.addMetadata(currentNo);
-            Metadata CurrentNoSorting = new Metadata(prefs.getMetadataTypeByName("CurrentNoSorting"));
-            CurrentNoSorting.setValue(order);
-            dsVolume.addMetadata(CurrentNoSorting);
+            Metadata currentNoSorting = new Metadata(prefs.getMetadataTypeByName("CurrentNoSorting"));
+            currentNoSorting.setValue(order);
+            dsVolume.addMetadata(currentNoSorting);
 
             Metadata manifestationType = new Metadata(prefs.getMetadataTypeByName("_ManifestationType"));
 
