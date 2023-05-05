@@ -979,7 +979,7 @@ public class WellcomeEndpoints {
     private void saveProperty(Process process, String name, String value) {
         Processproperty pe = new Processproperty();
         pe.setTitel(name);
-        pe.setType(PropertyType.String);
+        pe.setType(PropertyType.STRING);
         pe.setWert(value);
         pe.setProzess(process);
         PropertyManager.saveProcessProperty(pe);
