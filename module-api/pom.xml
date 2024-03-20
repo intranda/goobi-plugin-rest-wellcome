@@ -5,6 +5,6 @@
     <artifactId>plugin-rest-wellcome</artifactId>
     <version>24.03-SNAPSHOT</version>
   </parent>
-  <artifactId>plugin-rest-wellcome-base</artifactId>
+  <artifactId>plugin-rest-wellcome-api</artifactId>
   <packaging>jar</packaging>
 </project>

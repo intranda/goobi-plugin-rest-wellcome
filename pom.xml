@@ -10,7 +10,7 @@
   <artifactId>plugin-rest-wellcome</artifactId>
   <packaging>pom</packaging>
   <modules>
-    <module>module-base</module>
+    <module>module-api</module>
   </modules>
   <repositories>
     <repository>
