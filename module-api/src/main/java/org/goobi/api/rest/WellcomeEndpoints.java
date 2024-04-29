@@ -3,7 +3,7 @@ package org.goobi.api.rest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -186,7 +186,7 @@ public class WellcomeEndpoints {
             String message = "Received callback request from archive service. Status is 'succeeded'.";
             writeToLog(so, message, "info");
             log.debug("archive-callback: archiving succeeded. Closing step.");
-            //            so.setBearbeitungsstatusEnum(StepStatus.DONE);
+
             CloseStepHelper.closeStep(so, null);
 
             String fileName = acr.getSourceLocation().getPath();
@@ -257,7 +257,7 @@ public class WellcomeEndpoints {
         }
         String bNumberBase = bNumber.substring(0, lastIndex);
         XMLConfiguration xmlConfig = ConfigPlugins.getPluginConfig(PLUGIN_NAME);
-        //            xmlConfig = new XMLConfiguration("/opt/digiverso/goobi/config/plugin_auth_config.xml");
+
         String clientId = xmlConfig.getString("clientID");
         String clientSecret = xmlConfig.getString("clientSecret");
         String authEndpoint = xmlConfig.getString("authEndpoint", "https://auth.wellcomecollection.org/oauth2/token");
@@ -382,7 +382,7 @@ public class WellcomeEndpoints {
     private String parseResponse(HttpResponse resp) throws IOException {
         StringWriter w = new StringWriter();
         try (InputStream is = resp.getEntity().getContent()) {
-            IOUtils.copy(is, w, Charset.forName("UTF-8"));
+            IOUtils.copy(is, w, StandardCharsets.UTF_8);
         }
         return w.toString();
     }
@@ -451,9 +451,8 @@ public class WellcomeEndpoints {
      */
     public boolean checkProcessStatus(String sql) {
 
-        Connection connection = null;
-        try {
-            connection = MySQLHelper.getInstance().getConnection();
+        try (
+                Connection connection = MySQLHelper.getInstance().getConnection()) {
             List<Integer> stepIds = new QueryRunner().query(connection, sql, MySQLHelper.resultSetToIntegerListHandler);
             if (!stepIds.isEmpty()) {
                 Step nextStep = StepManager.getStepById(stepIds.get(0));
@@ -461,13 +460,6 @@ public class WellcomeEndpoints {
             }
         } catch (SQLException e) {
             log.error(e);
-        } finally {
-            if (connection != null) {
-                try {
-                    MySQLHelper.closeConnection(connection);
-                } catch (SQLException e) {
-                }
-            }
         }
         return true;
     }
@@ -479,7 +471,7 @@ public class WellcomeEndpoints {
      * @param s3Key
      */
     private void deleteFileFromS3(String bucket, String s3Key) {
-        AmazonS3 s3 = null;// AmazonS3ClientBuilder.defaultClient();
+        AmazonS3 s3 = null;
         ConfigurationHelper conf = ConfigurationHelper.getInstance();
         if (conf.useCustomS3()) {
             AWSCredentials credentials = new BasicAWSCredentials(conf.getS3AccessKeyID(), conf.getS3SecretAccessKey());
@@ -579,7 +571,7 @@ public class WellcomeEndpoints {
         process.setTitel(getProcessTitle());
 
         try {
-            NeuenProzessAnlegen(process, template, ff, prefs);
+            createProcess(process, ff, prefs);
 
             saveProperty(process, "b-number", currentIdentifier);
             saveProperty(process, "CollectionName1", "Digitised");
@@ -614,14 +606,14 @@ public class WellcomeEndpoints {
         Fileformat ff = null;
         try {
             Element root = doc.getRootElement();
-            Element record = null;
+            Element rec = null;
             if ("record".equalsIgnoreCase(root.getName())) {
-                record = root;
+                rec = root;
             } else {
-                record = doc.getRootElement().getChild("record", MARC);
+                rec = doc.getRootElement().getChild("record", MARC);
             }
-            List<Element> controlfields = record.getChildren("controlfield", MARC);
-            List<Element> datafields = record.getChildren("datafield", MARC);
+            List<Element> controlfields = rec.getChildren("controlfield", MARC);
+            List<Element> datafields = rec.getChildren("datafield", MARC);
             String value907a = "";
 
             for (Element e907 : datafields) {
@@ -646,7 +638,7 @@ public class WellcomeEndpoints {
                 Element controlfield001 = new Element("controlfield", MARC);
                 controlfield001.setAttribute("tag", "001");
                 controlfield001.setText(value907a);
-                record.addContent(controlfield001);
+                rec.addContent(controlfield001);
             }
 
             XSLTransformer transformer = new XSLTransformer(XSLT);
@@ -751,24 +743,24 @@ public class WellcomeEndpoints {
         dateDigitization.setValue("2012");
         Metadata placeOfElectronicOrigin = new Metadata(prefs.getMetadataTypeByName("_placeOfElectronicOrigin"));
         placeOfElectronicOrigin.setValue("Wellcome Trust");
-        Metadata _electronicEdition = new Metadata(prefs.getMetadataTypeByName("_electronicEdition"));
-        _electronicEdition.setValue("[Electronic ed.]");
-        Metadata _electronicPublisher = new Metadata(prefs.getMetadataTypeByName("_electronicPublisher"));
-        _electronicPublisher.setValue("Wellcome Trust");
-        Metadata _digitalOrigin = new Metadata(prefs.getMetadataTypeByName("_digitalOrigin"));
-        _digitalOrigin.setValue("reformatted digital");
+        Metadata electronicEdition = new Metadata(prefs.getMetadataTypeByName("_electronicEdition"));
+        electronicEdition.setValue("[Electronic ed.]");
+        Metadata electronicPublisher = new Metadata(prefs.getMetadataTypeByName("_electronicPublisher"));
+        electronicPublisher.setValue("Wellcome Trust");
+        Metadata digitalOrigin = new Metadata(prefs.getMetadataTypeByName("_digitalOrigin"));
+        digitalOrigin.setValue("reformatted digital");
         if (dsRoot.getType().isAnchor()) {
             DocStruct ds = dsRoot.getAllChildren().get(0);
             ds.addMetadata(dateDigitization);
-            ds.addMetadata(_electronicEdition);
+            ds.addMetadata(electronicEdition);
 
         } else {
             dsRoot.addMetadata(dateDigitization);
-            dsRoot.addMetadata(_electronicEdition);
+            dsRoot.addMetadata(electronicEdition);
         }
         dsRoot.addMetadata(placeOfElectronicOrigin);
-        dsRoot.addMetadata(_electronicPublisher);
-        dsRoot.addMetadata(_digitalOrigin);
+        dsRoot.addMetadata(electronicPublisher);
+        dsRoot.addMetadata(digitalOrigin);
 
         Metadata physicalLocation = new Metadata(prefs.getMetadataTypeByName("_digitalOrigin"));
         physicalLocation.setValue("Wellcome Trust");
@@ -779,15 +771,15 @@ public class WellcomeEndpoints {
         Fileformat ff = null;
         try {
 
-            Element record = null;
+            Element rec = null;
             Element root = doc.getRootElement();
             if ("record".equals(root.getName())) {
-                record = root;
+                rec = root;
             } else {
-                record = doc.getRootElement().getChild("record", MARC);
+                rec = doc.getRootElement().getChild("record", MARC);
             }
-            List<Element> controlfields = record.getChildren("controlfield", MARC);
-            List<Element> datafields = record.getChildren("datafield", MARC);
+            List<Element> controlfields = rec.getChildren("controlfield", MARC);
+            List<Element> datafields = rec.getChildren("datafield", MARC);
             String value907a = "";
 
             for (Element e907 : datafields) {
@@ -812,7 +804,7 @@ public class WellcomeEndpoints {
                 Element controlfield001 = new Element("controlfield", MARC);
                 controlfield001.setAttribute("tag", "001");
                 controlfield001.setText(value907a);
-                record.addContent(controlfield001);
+                rec.addContent(controlfield001);
             }
 
             XSLTransformer transformer = new XSLTransformer(XSLT);
@@ -897,7 +889,7 @@ public class WellcomeEndpoints {
         return process;
     }
 
-    public void NeuenProzessAnlegen(Process process, Process template, Fileformat ff, Prefs prefs) throws Exception {
+    public void createProcess(Process process, Fileformat ff, Prefs prefs) throws Exception {
 
         for (Step step : process.getSchritteList()) {
 
@@ -927,7 +919,7 @@ public class WellcomeEndpoints {
         try {
             MetadataType mdt = prefs.getMetadataTypeByName("pathimagefiles");
             List<? extends Metadata> alleImagepfade = ff.getDigitalDocument().getPhysicalDocStruct().getAllMetadataByType(mdt);
-            if (alleImagepfade != null && alleImagepfade.size() > 0) {
+            if (alleImagepfade != null && !alleImagepfade.isEmpty()) {
                 for (Metadata md : alleImagepfade) {
                     ff.getDigitalDocument().getPhysicalDocStruct().getAllMetadata().remove(md);
                 }
@@ -966,7 +958,6 @@ public class WellcomeEndpoints {
     private void saveProperty(Process process, String name, String value) {
         Processproperty pe = new Processproperty();
         pe.setTitel(name);
-        //        pe.setType(PropertyType.STRING);
         pe.setWert(value);
         pe.setProzess(process);
         PropertyManager.saveProcessProperty(pe);
@@ -982,7 +973,7 @@ public class WellcomeEndpoints {
         return currentIdentifier;
     }
 
-    private static DirectoryStream.Filter<java.nio.file.Path> fileFilter = new DirectoryStream.Filter<java.nio.file.Path>() {
+    private static DirectoryStream.Filter<java.nio.file.Path> fileFilter = new DirectoryStream.Filter<>() {
 
         @Override
         public boolean accept(java.nio.file.Path entry) throws IOException {
