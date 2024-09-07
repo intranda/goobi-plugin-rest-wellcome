@@ -3,6 +3,8 @@ package org.goobi.api.rest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -51,14 +53,6 @@ import org.jdom2.Namespace;
 import org.jdom2.input.SAXBuilder;
 import org.jdom2.transform.XSLTransformer;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -80,6 +74,15 @@ import de.sub.goobi.persistence.managers.ProcessManager;
 import de.sub.goobi.persistence.managers.PropertyManager;
 import de.sub.goobi.persistence.managers.StepManager;
 import lombok.extern.log4j.Log4j;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
@@ -471,23 +474,41 @@ public class WellcomeEndpoints {
      * @param s3Key
      */
     private void deleteFileFromS3(String bucket, String s3Key) {
-        AmazonS3 s3 = null;
+
+        S3AsyncClient s3;
         ConfigurationHelper conf = ConfigurationHelper.getInstance();
         if (conf.useCustomS3()) {
-            AWSCredentials credentials = new BasicAWSCredentials(conf.getS3AccessKeyID(), conf.getS3SecretAccessKey());
-            ClientConfiguration clientConfiguration = new ClientConfiguration();
-            clientConfiguration.setSignerOverride("AWSS3V4SignerType");
+            URI endpoint = null;
+            try {
+                endpoint = new URI(conf.getS3Endpoint());
+            } catch (URISyntaxException e) {
+                log.error(e);
+            }
 
-            s3 = AmazonS3ClientBuilder.standard()
-                    .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(conf.getS3Endpoint(), Regions.US_EAST_1.name()))
-                    .withPathStyleAccessEnabled(true)
-                    .withClientConfiguration(clientConfiguration)
-                    .withCredentials(new AWSStaticCredentialsProvider(credentials))
+            AwsCredentials credentials = AwsBasicCredentials.create(conf.getS3AccessKeyID(), conf.getS3SecretAccessKey());
+            AwsCredentialsProvider prov = StaticCredentialsProvider.create(credentials);
+            s3 = S3AsyncClient.crtBuilder()
+                    .region(Region.US_EAST_1)
+                    .endpointOverride(endpoint)
+                    .credentialsProvider(prov)
+                    .checksumValidationEnabled(false)
                     .build();
         } else {
-            s3 = AmazonS3ClientBuilder.defaultClient();
+            s3 = S3AsyncClient.create();
         }
-        s3.deleteObject(bucket, s3Key);
+        ArrayList<ObjectIdentifier> toDelete = new ArrayList<>();
+        toDelete.add(ObjectIdentifier.builder()
+                .key(s3Key)
+                .build());
+
+        DeleteObjectsRequest dor = DeleteObjectsRequest.builder()
+                .bucket(bucket)
+                .delete(Delete.builder()
+                        .objects(toDelete)
+                        .build())
+                .build();
+
+        s3.deleteObjects(dor);
     }
 
     @Path("/create")
