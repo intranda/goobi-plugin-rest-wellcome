@@ -16,6 +16,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import javax.naming.ConfigurationException;
 import jakarta.ws.rs.Consumes;
@@ -105,6 +106,8 @@ public class WellcomeEndpoints {
     private static final String MODS_MAPPING_FILE = ConfigurationHelper.getInstance().getXsltFolder() + "mods_map.xml";
     private static final Namespace MARC = Namespace.getNamespace("marc", "http://www.loc.gov/MARC21/slim");
     private static final String PLUGIN_NAME = "intranda_rest_wellcome";
+    // Allowlist for identifiers used in SQL queries: alphanumeric, underscore, hyphen only
+    private static final Pattern SAFE_IDENTIFIER = Pattern.compile("^[\\w-]+$");
 
     private Map<String, String> map = new HashMap<>();
 
@@ -406,6 +409,10 @@ public class WellcomeEndpoints {
                 if (StringUtils.isBlank(bnumber)) {
                     log.error("Cannot extract bnumber from metadata file.");
                 }
+                if (!SAFE_IDENTIFIER.matcher(bnumber).matches()) {
+                    log.error("startOtherManifestations: unsafe bnumber in metadata, skipping SQL query: " + bnumber);
+                    return;
+                }
                 // search for other manifestations
                 List<Process> processlist = ProcessManager.getProcesses("prozesse.titel", "prozesse.titel like '%" + bnumber + "%'", null);
 
@@ -521,6 +528,12 @@ public class WellcomeEndpoints {
             return Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Parameter marc file is missing or empty.")).build();
         }
         java.nio.file.Path path = Paths.get(marcfile);
+        for (java.nio.file.Path component : path) {
+            if ("..".equals(component.toString())) {
+                log.warn("createNewProcess: path traversal attempt blocked for marcfile: " + marcfile);
+                return Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Invalid marc file path.")).build();
+            }
+        }
         if (!Files.exists(path)) {
             return Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Marc file does not exist: " + marcfile)).build();
         }
@@ -528,6 +541,10 @@ public class WellcomeEndpoints {
         String filename = path.getFileName().toString();
         // remove ending _marc.xml and _mrc.xml
         filename = filename.replaceAll("_(marc|mrc)\\.xml", "");
+        if (!SAFE_IDENTIFIER.matcher(filename).matches()) {
+            log.warn("createNewProcess: rejected unsafe filename: " + filename);
+            return Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Invalid b-number format.")).build();
+        }
         currentIdentifier = filename;
 
         if (ProcessManager.countProcesses("titel LIKE '%" + filename + "\\_%'") > 0) {
@@ -551,6 +568,10 @@ public class WellcomeEndpoints {
             // multivolume
             anchorId = filename.split("_")[0];
             order = filename.split("_")[1];
+            if (!SAFE_IDENTIFIER.matcher(anchorId).matches()) {
+                log.warn("createNewProcess: rejected unsafe anchorId: " + anchorId);
+                return Response.status(Response.Status.BAD_REQUEST).entity(createErrorResponse("Invalid b-number format.")).build();
+            }
             if (ProcessManager.countProcesses("titel LIKE '%" + anchorId + "'") > 0) {
                 return Response.status(Response.Status.EXPECTATION_FAILED)
                         .entity(createErrorResponse("b-number " + anchorId + " already exists, you should move it to suspicious folder."))
