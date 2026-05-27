@@ -19,14 +19,6 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import javax.naming.ConfigurationException;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.dbutils.QueryRunner;
@@ -66,6 +58,7 @@ import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.JwtHelper;
 import de.sub.goobi.helper.ScriptThreadWithoutHibernate;
 import de.sub.goobi.helper.StorageProvider;
+import de.sub.goobi.helper.XmlTools;
 import de.sub.goobi.helper.enums.StepEditType;
 import de.sub.goobi.helper.enums.StepStatus;
 import de.sub.goobi.helper.exceptions.DAOException;
@@ -74,6 +67,14 @@ import de.sub.goobi.persistence.managers.MySQLHelper;
 import de.sub.goobi.persistence.managers.ProcessManager;
 import de.sub.goobi.persistence.managers.PropertyManager;
 import de.sub.goobi.persistence.managers.StepManager;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import lombok.extern.log4j.Log4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
@@ -588,7 +589,8 @@ public class WellcomeEndpoints {
 
         Prefs prefs = template.getRegelsatz().getPreferences();
 
-        SAXBuilder builder = new SAXBuilder();
+        SAXBuilder builder = XmlTools.getSAXBuilder();
+
         Document doc = null;
         try {
             doc = builder.build(marcfile);
