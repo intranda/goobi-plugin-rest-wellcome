@@ -1,6 +1,9 @@
 # Goobi workflow Plugin: goobi-plugin-rest-wellcome
 
-<img src="https://goobi.io/wp-content/uploads/logo_goobi_plugin.png" align="right" style="margin:0 0 20px 20px;" alt="Plugin for Goobi workflow" width="175" height="109">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://goobi.io/logo_goobi_workflow_dark.png">
+  <img src="https://goobi.io/logo_goobi_workflow.png" align="right" alt="Plugin for Goobi workflow" width="240" height="132" hspace="20" vspace="10">
+</picture>
 
 This REST plugin for Goobi workflow is a set of REST endpoints for the Archive Storage Service communication of the Wellcome Library and includes the possibility to create Goobi processes based on previous Internet Archive requests that provided MARC XML files.
 
